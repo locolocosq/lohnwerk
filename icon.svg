@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="Lohnwerk">
+  <title>Lohnwerk</title>
+  <!-- Grundfläche: das Akzentblau der App -->
+  <rect width="512" height="512" rx="112" ry="112" fill="#0066CC"/>
+  <!-- Achse und aufsteigende Balken, ganz in der sicheren Mitte -->
+  <g fill="none" stroke="#FFFFFF" stroke-linecap="round" stroke-width="26">
+    <path d="M152 148 V 364"/>
+    <path d="M152 364 H 360"/>
+  </g>
+  <g fill="#FFFFFF">
+    <rect x="196" y="286" width="30" height="56" rx="15"/>
+    <rect x="253" y="240" width="30" height="102" rx="15"/>
+    <rect x="310" y="192" width="30" height="150" rx="15"/>
+  </g>
+</svg>

@@ -1,0 +1,44 @@
+{
+  "name": "Lohnwerk — Gehalt & Budget",
+  "short_name": "Lohnwerk",
+  "description": "Private Haushalts- und Gehaltsplanung. Alle Daten bleiben auf deinem Gerät.",
+  "lang": "de",
+  "dir": "ltr",
+  "start_url": "./",
+  "scope": "./",
+  "id": "./",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "orientation": "portrait-primary",
+  "background_color": "#f7f7f8",
+  "theme_color": "#f7f7f8",
+  "categories": ["finance", "productivity", "utilities"],
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Ausgaben",
+      "short_name": "Ausgaben",
+      "description": "Alle Ausgabenpositionen ansehen",
+      "url": "./#ausgaben"
+    },
+    {
+      "name": "Auswertung",
+      "short_name": "Auswertung",
+      "description": "Diagramme und Analysen ansehen",
+      "url": "./#auswertung"
+    }
+  ]
+}
