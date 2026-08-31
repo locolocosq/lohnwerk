@@ -305,8 +305,8 @@ Alternativ: Auf der Startseite des Repositories **Add file → Upload files**, d
 Nach ein bis zwei Minuten ist die neue Fassung online.
 
 > **Wichtig bei Aktualisierungen:** Weil die App offline funktioniert, hält sich der Browser eine Kopie. Damit die neue Fassung ankommt, muss in der Datei `sw.js` die Zeile
-> `const CACHE_NAME = "lohnwerk-v5";`
-> auf eine neue Nummer geändert werden — also `lohnwerk-v6`, `lohnwerk-v7` und so weiter.
+> `const CACHE_NAME = "lohnwerk-v6";`
+> auf eine neue Nummer geändert werden — also `lohnwerk-v7`, `lohnwerk-v8` und so weiter.
 > Danach die App schließen und neu öffnen; manchmal braucht es zwei Starts. **Deine Daten bleiben dabei erhalten.**
 
 ---

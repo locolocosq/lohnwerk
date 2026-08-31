@@ -8,7 +8,7 @@
 
 /* Bei jeder neuen Fassung der App diese Zahl erhöhen.
    Dann lädt der Browser die Dateien frisch. */
-const CACHE_NAME = "lohnwerk-v5";
+const CACHE_NAME = "lohnwerk-v6";
 
 /* Diese Dateien machen die App aus. */
 const DATEIEN = [
@@ -22,7 +22,14 @@ const DATEIEN = [
 self.addEventListener("install", (ereignis) => {
   ereignis.waitUntil(
     caches.open(CACHE_NAME)
-      .then((cache) => cache.addAll(DATEIEN))
+      .then((cache) => Promise.all(DATEIEN.map((pfad) =>
+        /* "reload" erzwingt eine frische Kopie vom Server. Ohne das legt
+           der Browser womöglich eine veraltete Fassung aus seinem eigenen
+           Zwischenspeicher ab — und die neue Version käme nie an. */
+        fetch(new Request(pfad, { cache: "reload" }))
+          .then((antwort) => antwort.ok ? cache.put(pfad, antwort) : null)
+          .catch(() => null)
+      )))
       .then(() => self.skipWaiting())
       .catch(() => {
         /* Wenn eine Datei fehlt, bricht die Installation nicht die App.
@@ -61,7 +68,10 @@ self.addEventListener("fetch", (ereignis) => {
 
   if(anfrage.mode === "navigate"){
     ereignis.respondWith(
-      fetch(anfrage)
+      /* Immer beim Server nachfragen, ob es etwas Neues gibt. "no-cache"
+         heißt nicht "ohne Zwischenspeicher", sondern "vorher rückfragen" —
+         so kommt eine neue Fassung sofort an und nicht erst beim nächsten Start. */
+      fetch(new Request(anfrage.url, { cache: "no-cache", credentials: "same-origin" }))
         .then((antwort) => {
           const kopie = antwort.clone();
           caches.open(CACHE_NAME).then((cache) => cache.put(anfrage, kopie)).catch(() => {});
@@ -83,7 +93,9 @@ self.addEventListener("fetch", (ereignis) => {
 
   ereignis.respondWith(
     caches.match(anfrage).then((treffer) => {
-      const ausDemNetz = fetch(anfrage)
+      /* Auch hier beim Server rückfragen, damit eine neue Fassung von
+         manifest.json, icon.svg oder sw.js zuverlässig ankommt. */
+      const ausDemNetz = fetch(new Request(anfrage.url, { cache: "no-cache", credentials: "same-origin" }))
         .then((antwort) => {
           if(antwort && antwort.status === 200 && antwort.type === "basic"){
             const kopie = antwort.clone();
