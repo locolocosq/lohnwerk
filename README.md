@@ -241,6 +241,12 @@ Ein Knopf legt für den Rest eine monatliche Position **„Zakat (offener Rest)"
 
 Die Restposition zählt sich dabei nicht selbst mit — sonst würde sie sich selbst erfüllen.
 
+### Stichtag und monatliche Zahlweise
+
+Ein Feld für deinen persönlichen Stichtag zeigt, wie viele Tage bis zur nächsten Abrechnung bleiben und wie viele Monatsraten bis dahin geflossen sind. Der Stichtag wandert dabei automatisch im Mondjahr-Takt weiter — rund 354 Tage, also elf weniger als ein Sonnenjahr.
+
+Ein eigener Erklärabschnitt behandelt die Frage, ob man monatlich zahlen darf statt einmal im Jahr (ja, das nennt sich Vorauszahlung), welche drei Bedingungen dabei gelten, und dass die Zakat nach dem Stichtag unverzüglich fällig ist.
+
 Für die Tagespreise von Gold und Silber gibt es einen Knopf **„Tagespreis holen"**. Er fragt zwei öffentliche Preisdienste nach dem heutigen Kurs und rechnet ihn in Euro je Gramm um. Du kannst die Preise genauso gut selbst nachschlagen und eintippen — beides wird gespeichert, mit Datum und dem Vermerk, woher der Wert stammt.
 
 > **Das ist die einzige Stelle in Lohnwerk, die etwas aus dem Internet lädt** — und nur, wenn du den Knopf drückst. Beim ersten Mal fragt die App einmalig nach. Übertragen wird dabei nichts von dir: Es geht nur die Frage nach dem Goldkurs hinaus, keine deiner Zahlen. Alles andere in der App funktioniert weiterhin vollständig offline; ohne diesen Knopf verlässt keine einzige Anfrage dein Gerät.
@@ -327,8 +333,8 @@ Alternativ: Auf der Startseite des Repositories **Add file → Upload files**, d
 Nach ein bis zwei Minuten ist die neue Fassung online.
 
 > **Wichtig bei Aktualisierungen:** Weil die App offline funktioniert, hält sich der Browser eine Kopie. Damit die neue Fassung ankommt, muss in der Datei `sw.js` die Zeile
-> `const CACHE_NAME = "lohnwerk-v10";`
-> auf eine neue Nummer geändert werden — also `lohnwerk-v11`, `lohnwerk-v12` und so weiter.
+> `const CACHE_NAME = "lohnwerk-v11";`
+> auf eine neue Nummer geändert werden — also `lohnwerk-v12`, `lohnwerk-v13` und so weiter.
 > Danach die App schließen und neu öffnen; manchmal braucht es zwei Starts. **Deine Daten bleiben dabei erhalten.**
 
 ---
