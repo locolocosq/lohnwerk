@@ -225,7 +225,9 @@ Für die Tagespreise von Gold und Silber gibt es einen Knopf **„Tagespreis hol
 
 > **Das ist die einzige Stelle in Lohnwerk, die etwas aus dem Internet lädt** — und nur, wenn du den Knopf drückst. Beim ersten Mal fragt die App einmalig nach. Übertragen wird dabei nichts von dir: Es geht nur die Frage nach dem Goldkurs hinaus, keine deiner Zahlen. Alles andere in der App funktioniert weiterhin vollständig offline; ohne diesen Knopf verlässt keine einzige Anfrage dein Gerät.
 
-Vier ausklappbare Abschnitte erklären: was Zakat ist und ab wann sie fällig wird, was zum Vermögen zählt und was nicht, die Unterschiede zwischen Hanafi und Schafi'i, wer sie empfangen darf — und den Hinweis, dass der Rechner keine Rechtsauskunft ist und du bei Unklarheiten selbst recherchieren beziehungsweise jemanden fragen solltest, der sich auskennt.
+Fünf ausklappbare Abschnitte erklären: was Zakat ist und ab wann sie fällig wird, was zum Vermögen zählt und was nicht, **Sparen für ein Eigenheim sowie Aktien und Fonds**, die Unterschiede zwischen Hanafi und Schafi'i, wer sie empfangen darf — und den Hinweis, dass der Rechner keine Rechtsauskunft ist und du bei Unklarheiten selbst recherchieren beziehungsweise jemanden fragen solltest, der sich auskennt.
+
+> **Häufige Frage:** Zählt Geld, das man für eine spätere Eigentumswohnung anspart oder anlegt, schon zur Zakat? Nach der überwiegenden Meinung ja — Zakat richtet sich nach dem, was am Stichtag da ist, nicht nach der Absicht. Erst die gekaufte, selbst bewohnte Wohnung fällt dauerhaft heraus. Der entsprechende Abschnitt im Rechner geht darauf und auf die Bewertung von Aktien im Einzelnen ein.
 
 ### Kleine Kniffe, die viel sparen
 
@@ -305,8 +307,8 @@ Alternativ: Auf der Startseite des Repositories **Add file → Upload files**, d
 Nach ein bis zwei Minuten ist die neue Fassung online.
 
 > **Wichtig bei Aktualisierungen:** Weil die App offline funktioniert, hält sich der Browser eine Kopie. Damit die neue Fassung ankommt, muss in der Datei `sw.js` die Zeile
-> `const CACHE_NAME = "lohnwerk-v6";`
-> auf eine neue Nummer geändert werden — also `lohnwerk-v7`, `lohnwerk-v8` und so weiter.
+> `const CACHE_NAME = "lohnwerk-v7";`
+> auf eine neue Nummer geändert werden — also `lohnwerk-v8`, `lohnwerk-v9` und so weiter.
 > Danach die App schließen und neu öffnen; manchmal braucht es zwei Starts. **Deine Daten bleiben dabei erhalten.**
 
 ---

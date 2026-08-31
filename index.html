@@ -4897,7 +4897,13 @@ function zakatRechner(){
   const wertFeld = (schluessel, beschriftung, hinweis) => {
     const f = betragsFeld(0, beschriftung);
     f.feld.removeAttribute("data-autofokus");
-    if(hinweis) f.box.appendChild(el("div",{ class:"feld-hinweis", text:hinweis }));
+    /* Der Rechenhinweis von betragsFeld wird hier durch die Sacherklärung
+       ersetzt — zwei Zeilen unter jedem der acht Felder wären zu unruhig. */
+    if(hinweis){
+      const vorhanden = f.box.querySelector(".feld-hinweis");
+      if(vorhanden) vorhanden.remove();
+      f.box.appendChild(el("div",{ class:"feld-hinweis", text:hinweis }));
+    }
     felder[schluessel] = f;
     return f.box;
   };
@@ -4918,8 +4924,9 @@ function zakatRechner(){
   karte.appendChild(grammFeld("silberGramm", "Silber in Gramm"));
   karte.appendChild(wertFeld("handelsware", "Handelsware",
     "Waren, die du zum Weiterverkauf hältst — zum heutigen Verkaufswert."));
-  karte.appendChild(wertFeld("anlagen", "Anlagen und Beteiligungen",
-    "Aktien, Fonds, Anteile. Bei kurzfristiger Handelsabsicht der volle Wert."));
+  karte.appendChild(wertFeld("anlagen", "Aktien, Fonds und Anlagen",
+    "Der Depotwert am Stichtag. Auch dann, wenn du damit später etwas Bestimmtes kaufen willst — "
+    + "siehe „Sparen für ein Eigenheim“ weiter unten."));
   karte.appendChild(wertFeld("forderungen", "Geliehenes Geld",
     "Nur, womit du sicher rechnest, es zurückzubekommen."));
   karte.appendChild(wertFeld("schulden", "Fällige Schulden",
@@ -5070,7 +5077,8 @@ function zakatErklaerung(){
       "Handelsware, also alles, was du zum Weiterverkauf hältst, zum aktuellen Verkaufswert",
       "Aktien, Fondsanteile und Beteiligungen. Bei Handelsabsicht der volle Wert; bei langfristiger Anlage rechnen viele Gelehrte nur den Anteil an zakatpflichtigen Werten des Unternehmens.",
       "Geliehenes Geld, mit dessen Rückzahlung du fest rechnest",
-      "Mieteinnahmen und Ersparnisse, die am Stichtag noch vorhanden sind"
+      "Mieteinnahmen und Ersparnisse, die am Stichtag noch vorhanden sind",
+      "<strong>Auch Erspartes für einen bestimmten Zweck</strong> — für eine Wohnung, eine Hochzeit, ein Auto oder die Pilgerfahrt. Die Absicht befreit nicht; erst der gekaufte, selbst genutzte Gegenstand fällt heraus."
     ]));
 
     inhalt.appendChild(zwischen("Was nicht dazuzählt"));
@@ -5081,6 +5089,57 @@ function zakatErklaerung(){
       "Werkzeuge und Maschinen deines Betriebs, die nicht zum Verkauf stehen",
       "Eine vermietete Immobilie selbst — zakatpflichtig sind nur die angesparten Mieteinnahmen"
     ]));
+    return inhalt;
+  }));
+
+  box.appendChild(klapp("Sparen für ein Eigenheim, Aktien und Fonds", () => {
+    const inhalt = el("div",{});
+    inhalt.appendChild(absatz(
+      "Wer sich keine Wohnung kaufen kann und stattdessen Geld anspart oder anlegt, um irgendwann "
+      + "Eigentum zu erreichen, stellt oft die Frage: Zählt dieses Geld schon zur Zakat?"));
+
+    inhalt.appendChild(el("div",{ class:"banner", style:"margin-bottom:14px" },
+      icon("ic-info"),
+      el("div",{ class:"inhalt-b", style:"line-height:1.55",
+        html:"Nach der überwiegenden Meinung <strong>ja</strong>. Zakat richtet sich nach dem, was du am Stichtag "
+           + "besitzt — nicht danach, wofür du es vorgesehen hast." })
+    ));
+
+    inhalt.appendChild(absatz(
+      "Solange dein Geld noch Geld oder Wertpapiere sind, zählen sie mit. Dasselbe gilt für Ersparnisse "
+      + "zur Hochzeit, fürs Auto oder für die Pilgerfahrt. Der Grund: Eine Absicht ist kein Besitz. "
+      + "Erst wenn du die Wohnung tatsächlich gekauft hast und selbst darin wohnst, fällt sie dauerhaft "
+      + "aus der Zakat heraus — eine selbstgenutzte Wohnung ist nie zakatpflichtig, egal wie viel sie wert ist."));
+
+    inhalt.appendChild(zwischen("Wie Aktien und Fonds bewertet werden"));
+    inhalt.appendChild(absatz(
+      "Dazu gibt es zwei verbreitete Wege. Welcher passt, hängt davon ab, warum du die Papiere hältst:"));
+    inhalt.appendChild(liste([
+      "<strong>Voller Kurswert:</strong> Der Depotwert am Stichtag zählt komplett. Das ist die vorsichtigere und "
+      + "weiter verbreitete Position — vor allem, wenn du ohnehin planst, die Papiere später zu verkaufen. "
+      + "Wer für ein Eigenheim anspart, will genau das tun.",
+      "<strong>Anteiliger Firmenwert:</strong> Manche moderne Gremien rechnen bei reinen Langzeitanlagen nur den Teil, "
+      + "der auf Bargeld, Vorräte und Forderungen des Unternehmens entfällt — nicht auf Gebäude und Maschinen. "
+      + "Das erfordert Zahlen aus den Geschäftsberichten und ist in der Praxis aufwendig."
+    ]));
+    inhalt.appendChild(absatz(
+      "Trag im Feld oben den Betrag ein, der nach deiner Einschätzung richtig ist. Im Zweifel den vollen Depotwert — "
+      + "damit liegst du auf der sicheren Seite, und der Überschuss kommt den Empfängern zugute."));
+
+    inhalt.appendChild(zwischen("Was nicht mitzählt"));
+    inhalt.appendChild(liste([
+      "Die Wohnung oder das Haus, in dem du selbst wohnst — unabhängig vom Wert",
+      "Ein Kredit, den du für den Kauf schon aufgenommen hast: fällige Raten darfst du nach hanafitischer Lehre abziehen",
+      "Bereits gezahlte Anzahlungen, die dir nicht mehr gehören"
+    ]));
+
+    inhalt.appendChild(el("div",{ class:"banner warn" },
+      icon("ic-warn"),
+      el("div",{ class:"inhalt-b", style:"line-height:1.55",
+        text:"Es gibt auch Gelehrte, die bei fest zweckgebundenen Rücklagen anders urteilen. "
+           + "Wenn es um größere Summen geht, lohnt sich eine Rückfrage bei jemandem, der sich auskennt — "
+           + "gerade weil es dabei um eine Pflicht geht und nicht um eine freiwillige Gabe." })
+    ));
     return inhalt;
   }));
 
