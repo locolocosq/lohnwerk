@@ -852,7 +852,9 @@ input[type="range"]::-moz-range-thumb{
   white-space:nowrap;text-align:right;
 }
 .datenzeile .dz-wert .neben{
-  display:block;font-size:12px;font-weight:400;color:var(--text-3);margin-top:1px;
+  /* --text-2 statt --text-3: Datenzeilen stehen oft auf grauem Grund,
+     dort reicht der hellere Ton nicht für gute Lesbarkeit. */
+  display:block;font-size:12px;font-weight:400;color:var(--text-2);margin-top:1px;
 }
 
 /* Kopierbare Liste (Überweisungsplan) */
@@ -1375,6 +1377,12 @@ const WOCHENTAGE = ["Mo","Di","Mi","Do","Fr","Sa","So"];
 const SPAR_TAG_ID = "tag_sparen";
 const SPAR_TAG = { id:SPAR_TAG_ID, name:"Sparen", farbe:"p2", fest:true };
 
+/* Das Zakat-Tag ist ebenfalls fest eingebaut. Positionen damit gelten als
+   Zakat-Zahlungen und werden von der berechneten Pflicht abgezogen — so
+   siehst du, wie viel davon schon läuft und was noch offen ist. */
+const ZAKAT_TAG_ID = "tag_zakat";
+const ZAKAT_TAG = { id:ZAKAT_TAG_ID, name:"Zakat", farbe:"p5", fest:true };
+
 const TAG_VORSCHLAEGE = [
   { name:"Fixkosten",      farbe:"p7" },
   { name:"Variabel",       farbe:"p5" },
@@ -1652,7 +1660,7 @@ function profilNeu(name = "Aktuell"){
     einnahmen: [],
     ausgaben: [],
     konten: [],
-    tags: [ { ...SPAR_TAG } ],
+    tags: [ { ...SPAR_TAG }, { ...ZAKAT_TAG } ],
     zahlungswege: wegeNeu()
   };
 }
@@ -1715,8 +1723,9 @@ function P(){
   p.konten       = Array.isArray(p.konten)       ? p.konten       : [];
   p.tags         = Array.isArray(p.tags)         ? p.tags         : [];
   p.zahlungswege = Array.isArray(p.zahlungswege) && p.zahlungswege.length ? p.zahlungswege : wegeNeu();
-  // Das Spar-Tag ist Pflicht und steht immer an erster Stelle.
+  // Spar- und Zakat-Tag sind Pflicht.
   if(!p.tags.some(t => t.id === SPAR_TAG_ID)) p.tags.unshift({ ...SPAR_TAG });
+  if(!p.tags.some(t => t.id === ZAKAT_TAG_ID)) p.tags.push({ ...ZAKAT_TAG });
   return p;
 }
 
@@ -1731,6 +1740,54 @@ function wegFuer(pos){
 /** Ist diese Position Sparen statt Ausgabe? */
 function istSparen(pos){
   return Array.isArray(pos.tags) && pos.tags.includes(SPAR_TAG_ID);
+}
+
+/** Ist diese Position eine Zakat-Zahlung? */
+function istZakat(pos){
+  return Array.isArray(pos.tags) && pos.tags.includes(ZAKAT_TAG_ID);
+}
+
+/* ----------------------------------------------------------------
+   ZAKAT-ABGLEICH
+   Was von der berechneten Pflicht läuft schon, was ist noch offen?
+   ---------------------------------------------------------------- */
+
+/** Die Position, die den offenen Rest abdeckt — oder null. */
+function zakatRestPosition(){
+  return P().ausgaben.find(a => a.zakatRest === true) || null;
+}
+
+/** Alle Zakat-Positionen außer der Restposition, Jahres-Cent. */
+function zakatVerplant(){
+  return aktivePosten()
+    .filter(a => istZakat(a) && !a.zakatRest)
+    .reduce((s,a) => s + jahresCent(a), 0);
+}
+
+/** Die einzelnen Zakat-Zahlungen, größte zuerst. */
+function zakatPositionen(){
+  return aktivePosten()
+    .filter(a => istZakat(a) && !a.zakatRest)
+    .sort((a,b) => jahresCent(b) - jahresCent(a));
+}
+
+/**
+ * Gleicht die berechnete Pflicht mit dem ab, was schon läuft.
+ * @param sollJahr die berechnete Zakat als Jahresbetrag in Cent
+ */
+function zakatAbgleich(sollJahr){
+  const verplant = zakatVerplant();
+  const rest = zakatRestPosition();
+  const restJahr = rest && rest.aktiv !== false ? jahresCent(rest) : 0;
+  const offen = Math.max(0, sollJahr - verplant);
+  return {
+    sollJahr, verplant, offen,
+    restPosition: rest,
+    restJahr,
+    /* Weicht die Restposition vom rechnerisch Offenen ab? */
+    restStimmt: rest ? Math.abs(restJahr - offen) < 100 : offen === 0,
+    zuViel: Math.max(0, verplant - sollJahr)
+  };
 }
 
 /** Prüft und repariert einen geladenen Zustand, ohne je abzustürzen. */
@@ -1798,14 +1855,16 @@ function prSaeubern(roh){
     if(!t || typeof t !== "object") return null;
     const id = typeof t.id === "string" && t.id ? t.id : idNeu("tg");
     if(id === SPAR_TAG_ID) return { ...SPAR_TAG };
+    if(id === ZAKAT_TAG_ID) return { ...ZAKAT_TAG };
     return {
       id,
       name: (typeof t.name === "string" ? t.name.trim() : "").slice(0,40) || "Tag",
       farbe: PALETTE.includes(t.farbe) ? t.farbe : "p1"
     };
   }).filter(Boolean);
-  // Das Spar-Tag ist nicht verhandelbar.
+  // Spar- und Zakat-Tag sind nicht verhandelbar.
   if(!p.tags.some(t => t.id === SPAR_TAG_ID)) p.tags.unshift({ ...SPAR_TAG });
+  if(!p.tags.some(t => t.id === ZAKAT_TAG_ID)) p.tags.push({ ...ZAKAT_TAG });
 
   /* Zahlungswege: entweder schon als Liste vorhanden (Schema 2) oder aus den
      festen Werten der ersten Fassung übernommen. */
@@ -1903,6 +1962,10 @@ function prSaeubern(roh){
          nehmen wir den alten Wert mit, damit nichts verlorengeht. */
       renditeProzent: Number.isFinite(+x.renditeProzent) ? klemmen(+x.renditeProzent,0,30)
                     : Number.isFinite(+x.zinsProzent) ? klemmen(+x.zinsProzent,0,30) : 0,
+      /* Kennzeichnet die Position, die den noch offenen Zakat-Rest abdeckt.
+         Sie wird bei der Frage „was ist schon verplant“ nicht mitgezählt,
+         sonst würde sie sich selbst erfüllen. */
+      zakatRest: x.zakatRest === true,
       bestandCent: Number.isFinite(+x.bestandCent) ? Math.max(0, Math.round(+x.bestandCent)) : 0,
       zielCent: Number.isFinite(+x.zielCent) ? Math.max(0, Math.round(+x.zielCent)) : 0
     };
@@ -2492,6 +2555,7 @@ const UI = {
   filterTags: new Set(),
   gruppierung: "tag",         // tag | art | konto | zahlungsweg | prioritaet | faelligkeit | keine
   auswertungTab: "ausgaben",  // welcher Reiter in der Auswertung offen ist
+  rechnerOffen: null,         // welcher Rechner gerade geöffnet ist
   neuAlsSparen: false,        // wird der nächste neue Posten gleich als Sparen angelegt?
   sparJahre: null,            // Zeitraum-Wahl im Spar-Diagramm (null = Einstellung)
   sortierung: "betrag",       // betrag | name | faelligkeit
@@ -3812,7 +3876,16 @@ const AUSWERTUNG_REITER = [
   { id:"ausgaben",  name:"Ausgaben",    icon:"ic-auswertung" },
   { id:"sparen",    name:"Sparen",      icon:"ic-sparen" },
   { id:"analyse",   name:"Analyse",     icon:"ic-wachstum" },
-  { id:"werkzeuge", name:"Werkzeuge",   icon:"ic-ziel" }
+  { id:"werkzeuge", name:"Rechner",     icon:"ic-ziel" }
+];
+
+/* Die Rechner im gleichnamigen Reiter. Sie stehen nicht untereinander,
+   sondern werden einzeln geöffnet — jeder für sich, ohne Ablenkung. */
+const RECHNER = [
+  { id:"zakat",     name:"Zakat-Rechner",   icon:"ic-ziel",
+    beschreibung:"Wie viel Zakat fällig wird — nach Hanafi oder Schafi'i, mit Abgleich deiner laufenden Spenden." },
+  { id:"vermoegen", name:"Vermögensrechner", icon:"ic-wachstum",
+    beschreibung:"Was aus Kapital wird, das Gewinn abwirft. Mit Kaufkraft nach Inflation." }
 ];
 
 function zeichneAuswertung(){
@@ -4553,8 +4626,50 @@ function sparVerlaufZeichnen(reihe, mitKaufkraft){
    Daten ändern. Beide arbeiten nur mit dem, was du eintippst.
    ================================================================ */
 function reiterWerkzeuge(wurzel){
-  wurzel.appendChild(vermoegensRechner());
-  wurzel.appendChild(zakatRechner());
+  /* Ist ein Rechner geöffnet, zeigen wir nur ihn — mit Weg zurück. */
+  if(UI.rechnerOffen){
+    const eintrag = RECHNER.find(r => r.id === UI.rechnerOffen);
+    wurzel.appendChild(el("button",{ class:"knopf rahmen", type:"button", style:"margin-bottom:14px",
+      onclick:() => { UI.rechnerOffen = null; zeichneAuswertung(); } },
+      icon("ic-links"), "Alle Rechner"));
+    if(UI.rechnerOffen === "zakat") wurzel.appendChild(zakatRechner());
+    else if(UI.rechnerOffen === "vermoegen") wurzel.appendChild(vermoegensRechner());
+    else { UI.rechnerOffen = null; reiterWerkzeuge(wurzel); }
+    return;
+  }
+
+  /* Sonst die Auswahl. */
+  wurzel.appendChild(el("p",{ class:"t-klein", style:"margin-bottom:16px;line-height:1.55",
+    text:"Zwei Rechner zum Ausprobieren. Beide arbeiten nur mit dem, was du dort eintippst, "
+       + "und ändern nichts an deinen Positionen — außer du drückst ausdrücklich einen Knopf dafür." }));
+
+  RECHNER.forEach(r => {
+    wurzel.appendChild(el("button",{ class:"karte", type:"button",
+      style:"display:flex;align-items:center;gap:14px;width:100%;text-align:left;min-height:80px",
+      onclick:() => { UI.rechnerOffen = r.id; zeichneAuswertung(); } },
+      el("span",{ style:"width:46px;height:46px;border-radius:13px;flex:none;display:flex;align-items:center;justify-content:center;background:var(--akzent-weich);color:var(--akzent)" },
+        icon(r.icon, 24)),
+      el("span",{ style:"flex:1;min-width:0" },
+        el("span",{ style:"display:block;font-size:17px;font-weight:600;letter-spacing:-.015em", text:r.name }),
+        el("span",{ style:"display:block;font-size:13.5px;color:var(--text-2);margin-top:3px;line-height:1.4", text:r.beschreibung })
+      ),
+      el("span",{ class:"zeile-pfeil", style:"flex:none" }, icon("ic-rechts"))
+    ));
+  });
+
+  /* Wenn Zakat schon läuft, hier ein kurzer Stand. */
+  const laufend = zakatPositionen();
+  const rest = zakatRestPosition();
+  if(laufend.length > 0 || rest){
+    const summe = zakatVerplant() + (rest && rest.aktiv !== false ? jahresCent(rest) : 0);
+    wurzel.appendChild(el("div",{ class:"karte flach", style:"margin-top:8px" },
+      el("div",{ class:"t-kapitaelchen", style:"margin-bottom:8px", text:"Deine Zakat-Positionen" }),
+      el("div",{ style:"font-size:22px;font-weight:640;letter-spacing:-.02em;font-variant-numeric:tabular-nums",
+        text:euro(summe/12) + " im Monat" }),
+      el("p",{ class:"t-klein", style:"margin-top:6px;line-height:1.5",
+        text:`${laufend.length + (rest && rest.aktiv !== false ? 1 : 0)} ${plural(laufend.length + (rest&&rest.aktiv!==false?1:0),"Position","Positionen")} mit dem Tag „Zakat“ · ${euro(summe)} im Jahr` })
+    ));
+  }
 }
 
 /* ----------------------------------------------------------------
@@ -5039,28 +5154,16 @@ function zakatRechner(){
             : `Dein Vermögen von ${euro(netto)} liegt unter der Schwelle von ${euro(nisab)}. Dann ist keine Zakat fällig.` })
       ));
 
-      /* Was monatlich zurückzulegen wäre, um den Betrag beisammen zu haben. */
+      /* Monatsbetrag und Abgleich mit dem, was schon läuft. */
       if(pflichtig && proMonat > 0){
-        const schonDa = P().ausgaben.some(a => /zakat/i.test(a.name));
         kinder.push(el("div",{ style:"padding:18px;border-radius:14px;margin-top:12px;background:var(--karte-2);box-shadow:inset 3px 0 0 var(--akzent)" },
           el("div",{ class:"t-kapitaelchen", text:"Monatlich zurücklegen" }),
           el("div",{ style:"font-size:30px;font-weight:650;letter-spacing:-.025em;font-variant-numeric:tabular-nums;margin-top:2px;color:var(--akzent)",
             text:euro(proMonat) }),
           el("p",{ class:"t-klein", style:"margin-top:8px;line-height:1.55",
-            html:`So hast du die ${euro(betrag)} in zwölf Monaten beisammen und musst sie nicht auf einmal aufbringen.` }),
-          el("div",{ class:"knopf-reihe", style:"margin-top:14px" },
-            el("button",{ class:"knopf klein " + (schonDa ? "rahmen" : "primaer"), type:"button",
-              onclick:() => zakatAlsPostenAnlegen(betrag) },
-              icon("ic-plus"), schonDa ? "Betrag aktualisieren" : "Als Position eintragen"),
-            el("button",{ class:"knopf klein rahmen", type:"button",
-              onclick:(ev) => kopieren(`Zakat ${euro(betrag)} im Jahr — ${euro(proMonat)} im Monat zurücklegen`, ev.currentTarget) },
-              "Kopieren")
-          ),
-          el("p",{ class:"t-klein", style:"margin-top:10px;line-height:1.5",
-            text: schonDa
-              ? "Du hast Zakat bereits als Position. Der Knopf setzt den Betrag auf den neu berechneten Wert."
-              : "Der Knopf legt „Zakat“ als jährliche Position an. Sie taucht dann im Monatsblatt und in der Rücklage für Jahresrechnungen auf." })
+            html:`So hast du die ${euro(betrag)} in zwölf Monaten beisammen und musst sie nicht auf einmal aufbringen.` })
         ));
+        kinder.push(zakatAbgleichKarte(betrag, proMonat));
       }
 
       /* Aufschlüsselung */
@@ -5113,24 +5216,131 @@ function zakatRechner(){
 }
 
 /**
- * Trägt den berechneten Zakat-Betrag als jährliche Position ein.
+ * Der Abgleich: Was von der Pflicht läuft schon, was bleibt offen?
+ * Alles mit dem Tag „Zakat“ zählt als Zahlung und wird abgezogen.
+ */
+function zakatAbgleichKarte(sollJahr, sollMonat){
+  const a = zakatAbgleich(sollJahr);
+  const laufende = zakatPositionen();
+  const box = el("div",{ style:"padding:18px;border-radius:14px;margin-top:12px;background:var(--karte-2)" });
+
+  box.appendChild(el("div",{ class:"t-kapitaelchen", style:"margin-bottom:4px", text:"Davon läuft schon" }));
+
+  if(laufende.length === 0){
+    box.appendChild(el("p",{ class:"t-klein", style:"line-height:1.55;margin-bottom:14px",
+      text:"Noch keine deiner Positionen ist als Zakat markiert. Setz bei einer Spende das Tag „Zakat“ — "
+         + "dann zieht Lohnwerk sie hier ab und zeigt dir, was übrig bleibt." }));
+  } else {
+    laufende.forEach(pos => {
+      box.appendChild(el("button",{ class:"datenzeile", type:"button",
+        style:"width:100%;text-align:left;border-top:1px solid var(--linie)",
+        onclick:() => ausgabeDialog(pos) },
+        el("span",{ class:"dz-name" },
+          el("span",{ text:pos.name }),
+          el("span",{ class:"neben", text:`${INTERVALLE[pos.intervall].name} · ${wegFuer(pos).name}` })
+        ),
+        el("span",{ class:"dz-wert" },
+          el("span",{ text:euro(jahresCent(pos)/12) }),
+          el("span",{ class:"neben", text:euro(jahresCent(pos))+" /Jahr" })
+        )
+      ));
+    });
+    box.appendChild(el("div",{ class:"datenzeile", style:"border-top:1.5px solid var(--linie-stark)" },
+      el("span",{ class:"dz-name", text:"Summe" }),
+      el("span",{ class:"dz-wert" },
+        el("span",{ text:euro(a.verplant/12) }),
+        el("span",{ class:"neben", text:euro(a.verplant)+" /Jahr" })
+      )
+    ));
+  }
+
+  /* Der offene Rest */
+  const offenMonat = Math.round(a.offen/12);
+  const gedeckt = a.offen <= 0;
+  box.appendChild(el("div",{ style:`margin-top:16px;padding-top:14px;border-top:1px solid var(--linie)` },
+    el("div",{ class:"t-kapitaelchen", text: gedeckt ? "Vollständig gedeckt" : "Noch offen" }),
+    el("div",{ style:`font-size:28px;font-weight:650;letter-spacing:-.025em;font-variant-numeric:tabular-nums;margin-top:2px;color:${gedeckt ? "var(--gruen)" : "var(--rot)"}`,
+      text: gedeckt ? euro(0) : euro(offenMonat) }),
+    el("p",{ class:"t-klein", style:"margin-top:6px;line-height:1.55",
+      text: gedeckt
+        ? (a.zuViel > 0
+            ? `Du gibst sogar ${euro(a.zuViel/12)} im Monat mehr, als die Rechnung verlangt. Das Zuviel gilt als freiwillige Gabe (Sadaqa).`
+            : "Deine laufenden Zahlungen decken die Zakat genau ab.")
+        : `${euro(sollMonat)} sind fällig, ${euro(a.verplant/12)} laufen schon. Es fehlen ${euro(offenMonat)} im Monat.` })
+  ));
+
+  /* Die Restposition anlegen oder anpassen */
+  const rest = a.restPosition;
+  const knopfText = !rest ? "Restposition anlegen"
+                  : gedeckt ? "Restposition pausieren"
+                  : "Restbetrag aktualisieren";
+  const braucht = !rest ? !gedeckt : !a.restStimmt;
+
+  box.appendChild(el("div",{ class:"knopf-reihe", style:"margin-top:14px" },
+    el("button",{ class:"knopf klein " + (braucht ? "primaer" : "rahmen"), type:"button",
+      onclick:() => zakatRestEintragen(a.offen) },
+      icon(rest && gedeckt ? "ic-pause" : "ic-plus"), knopfText),
+    el("button",{ class:"knopf klein rahmen", type:"button",
+      onclick:(ev) => kopieren(
+        `Zakat ${euro(sollJahr)} im Jahr (${euro(sollMonat)} im Monat)\n`
+        + laufende.map(p => `− ${euro(jahresCent(p)/12)} ${p.name}`).join("\n")
+        + (laufende.length ? "\n" : "")
+        + `= ${euro(offenMonat)} noch offen`, ev.currentTarget) },
+      "Kopieren")
+  ));
+
+  if(rest){
+    box.appendChild(el("p",{ class:"t-klein", style:"margin-top:10px;line-height:1.5",
+      text: a.restStimmt
+        ? `Deine Position „${rest.name}“ steht auf ${euro(jahresCent(rest)/12)} im Monat und passt zur Rechnung.`
+        : `Deine Position „${rest.name}“ steht auf ${euro(jahresCent(rest)/12)} im Monat — die Rechnung ergibt ${euro(offenMonat)}.` }));
+  } else if(!gedeckt){
+    box.appendChild(el("p",{ class:"t-klein", style:"margin-top:10px;line-height:1.5",
+      text:"Der Knopf legt eine monatliche Position über den Fehlbetrag an. Sie bekommt das Zakat-Tag und "
+         + "taucht im Monatsblatt auf — so ist die volle Summe verplant." }));
+  }
+  return box;
+}
+
+/**
+ * Trägt den offenen Zakat-Rest als Position ein oder passt sie an.
  * Damit erscheint er im Monatsblatt und in der Rücklagenempfehlung —
  * die App rechnet den Monatsanteil dann selbst aus.
  */
-function zakatAlsPostenAnlegen(jahresBetragCent){
+function zakatRestEintragen(offenJahrCent){
   const p = P();
-  const vorhanden = p.ausgaben.find(a => /zakat/i.test(a.name));
+  const vorhanden = zakatRestPosition();
 
   if(vorhanden){
     const alt = vorhanden.betragCent;
-    vorhanden.betragCent = jahresBetragCent;
-    vorhanden.intervall = "jaehrlich";
+    const altAktiv = vorhanden.aktiv;
+    if(offenJahrCent <= 0){
+      /* Nichts mehr offen — die Position wird pausiert statt gelöscht,
+         damit sie beim nächsten Mal wieder bereitsteht. */
+      vorhanden.aktiv = false;
+      aendern();
+      toast("Deine Zakat ist vollständig verplant. Die Restposition ist pausiert.", () => {
+        const p2 = zakatRestPosition();
+        if(p2){ p2.aktiv = altAktiv; p2.betragCent = alt; }
+        aendern();
+      });
+      return;
+    }
+    /* Die Position läuft monatlich, also ist betragCent der Monatsbetrag. */
+    vorhanden.betragCent = Math.round(offenJahrCent / 12);
+    vorhanden.intervall = "monatlich";
+    vorhanden.aktiv = true;
     aendern();
-    toast(`Zakat auf ${euro(jahresBetragCent)} im Jahr gesetzt.`, () => {
-      const p2 = P().ausgaben.find(a => a.id === vorhanden.id);
-      if(p2) p2.betragCent = alt;
+    toast(`Offener Rest auf ${euro(Math.round(offenJahrCent/12))} im Monat gesetzt.`, () => {
+      const p2 = zakatRestPosition();
+      if(p2){ p2.betragCent = alt; p2.aktiv = altAktiv; }
       aendern();
     });
+    return;
+  }
+
+  if(offenJahrCent <= 0){
+    toast("Es ist nichts offen — deine Zakat ist schon vollständig verplant.");
     return;
   }
 
@@ -5139,24 +5349,27 @@ function zakatAlsPostenAnlegen(jahresBetragCent){
            || p.zahlungswege.find(w => w.kontotyp === "giro")
            || p.zahlungswege[0];
 
+  /* Als monatliche Position, damit sie sofort im Monatsblatt steht.
+     betragCent ist der Monatsbetrag — jahresCent multipliziert mit 12. */
   const neu = {
     id: idNeu("au"),
-    name: "Zakat",
-    betragCent: jahresBetragCent,
-    intervall: "jaehrlich",
+    name: "Zakat (offener Rest)",
+    betragCent: Math.round(offenJahrCent / 12),
+    intervall: "monatlich",
     zahlungsweg: weg.id,
     kontoId: null,
     faelligTag: 1,
     startMonat: heute().getMonth() + 1,
-    tags: [],
+    tags: [ZAKAT_TAG_ID],
     prioritaet: "fix",
     aktiv: true,
-    notiz: "Aus dem Zakat-Rechner übernommen",
-    renditeProzent: 0, bestandCent: 0, zielCent: 0
+    notiz: "Deckt den Teil deiner Zakat, der noch keiner festen Zahlung zugeordnet ist.",
+    renditeProzent: 0, bestandCent: 0, zielCent: 0,
+    zakatRest: true
   };
   p.ausgaben.push(neu);
   aendern();
-  toast(`Zakat als jährliche Position angelegt — ${euro(Math.round(jahresBetragCent/12))} im Monat.`, () => {
+  toast(`Restposition angelegt — ${euro(neu.betragCent)} im Monat.`, () => {
     P().ausgaben = P().ausgaben.filter(a => a.id !== neu.id);
     aendern();
   }, 8000);
@@ -6157,15 +6370,17 @@ function neuerTagDialog(dann, vorhanden){
   };
   koerper.addEventListener("keydown", (e) => { if(e.key === "Enter"){ e.preventDefault(); speichernFn(); } });
   const fuss = el("div",{ style:"display:flex;gap:8px;width:100%" },
-    (vorhanden && vorhanden.id !== SPAR_TAG_ID) ? el("button",{ class:"knopf gefahr", type:"button", "aria-label":"Tag löschen",
+    (vorhanden && vorhanden.id !== SPAR_TAG_ID && vorhanden.id !== ZAKAT_TAG_ID) ? el("button",{ class:"knopf gefahr", type:"button", "aria-label":"Tag löschen",
       onclick:() => tagLoeschen(daten) }, icon("ic-muell")) : null,
     el("button",{ class:"knopf primaer", type:"button", style:"flex:1", text: vorhanden ? "Speichern" : "Anlegen", onclick:speichernFn })
   );
-  if(vorhanden && vorhanden.id === SPAR_TAG_ID){
+  if(vorhanden && (vorhanden.id === SPAR_TAG_ID || vorhanden.id === ZAKAT_TAG_ID)){
     koerper.insertBefore(el("div",{ class:"banner", style:"margin-bottom:18px" },
       icon("ic-info"),
       el("div",{ class:"inhalt-b",
-        text:"Dieses Tag gehört fest zu Lohnwerk. Alles, was du damit markierst, zählt als Sparen statt als Ausgabe. Umbenennen und umfärben geht, löschen nicht." })
+        text: vorhanden.id === SPAR_TAG_ID
+          ? "Dieses Tag gehört fest zu Lohnwerk. Alles, was du damit markierst, zählt als Sparen statt als Ausgabe. Umbenennen und umfärben geht, löschen nicht."
+          : "Dieses Tag gehört fest zu Lohnwerk. Positionen damit gelten als Zakat-Zahlungen und werden im Zakat-Rechner von deiner Pflicht abgezogen. Umbenennen und umfärben geht, löschen nicht." })
     ), koerper.firstChild);
   }
   dialogOeffnen({ titel: vorhanden ? "Tag bearbeiten" : "Neuer Tag", koerper, fuss, ebene:2 });
@@ -6173,8 +6388,8 @@ function neuerTagDialog(dann, vorhanden){
 
 function tagLoeschen(tag){
   const p = P();
-  if(tag.id === SPAR_TAG_ID){
-    toast("Das Tag „Sparen“ gehört fest zu Lohnwerk und lässt sich nicht löschen.");
+  if(tag.id === SPAR_TAG_ID || tag.id === ZAKAT_TAG_ID){
+    toast(`Das Tag „${tag.name}“ gehört fest zu Lohnwerk und lässt sich nicht löschen.`);
     return;
   }
   const betroffen = p.ausgaben.filter(a => a.tags.includes(tag.id)).length;
@@ -6283,7 +6498,7 @@ function profilDialog(vorhanden){
         p.id = idNeu("pr");
       } else {
         p = profilNeu(name);
-        p.tags = [ { ...SPAR_TAG }, ...TAG_VORSCHLAEGE.slice(0,6).map(t => ({ id:idNeu("tg"), name:t.name, farbe:t.farbe })) ];
+        p.tags = [ { ...SPAR_TAG }, { ...ZAKAT_TAG }, ...TAG_VORSCHLAEGE.slice(0,6).map(t => ({ id:idNeu("tg"), name:t.name, farbe:t.farbe })) ];
         p.konten = KONTO_VORSCHLAEGE.map(k => ({ id:idNeu("ko"), name:k.name, typ:k.typ, startsaldoCent:0 }));
       }
       p.name = name;
@@ -6410,7 +6625,7 @@ function zeichneEinstellungen(){
         onclick:() => neuerTagDialog(null, t) },
         el("span",{ class:"punkt", style:`background:${tagFarbe(t)}` }),
         el("span",{ text:t.name }),
-        t.id === SPAR_TAG_ID ? el("span",{ style:"color:var(--gruen)", title:"fest eingebaut" }, icon("ic-schloss", 12)) : null,
+        (t.id === SPAR_TAG_ID || t.id === ZAKAT_TAG_ID) ? el("span",{ style:"color:var(--text-3)", title:"fest eingebaut" }, icon("ic-schloss", 12)) : null,
         el("span",{ style:"color:var(--text-2);font-weight:400", text:String(anzahl) })
       ));
     });
@@ -6985,7 +7200,7 @@ function beispieldatenLaden(){
       tg:  { id:idNeu("ko"), name:"Tagesgeld", typ:"tagesgeld", startsaldoCent:412000 }
     };
     p.konten = [konten.bar, konten.giro, konten.tg];
-    const tags = { "Sparen": SPAR_TAG_ID };
+    const tags = { "Sparen": SPAR_TAG_ID, "Zakat": ZAKAT_TAG_ID };
     TAG_VORSCHLAEGE.forEach(t => {
       const n = { id:idNeu("tg"), name:t.name, farbe:t.farbe };
       p.tags.push(n);
@@ -7043,6 +7258,10 @@ function beispieldatenLaden(){
       A("Geschenke", 25000, "jaehrlich", "Bar", 1, "variabel", ["Jährlich fällig"], 12, konten.bar.id),
       A("Taschengeld Kind", 3000, "monatlich", "Bar", 1, "fix", ["Fixkosten"], 1, konten.bar.id),
       A("Waschmaschine (Ersatz)", 65000, "einmalig", "Überweisung", 15, "variabel", [], 10),
+
+      /* Zakat: zwei feste Spenden, der Rest bleibt offen */
+      A("Waisenhaus", 1500, "monatlich", "Dauerauftrag", 1, "fix", ["Zakat"]),
+      A("Hungerhilfe", 1500, "monatlich", "Dauerauftrag", 1, "fix", ["Zakat"]),
 
       /* Sparposten — jeder mit eigener Rendite, Bestand und Ziel */
       A("Altersvorsorge ETF", 15000, "monatlich", "Dauerauftrag", 1, "fix", ["Sparen"], 1, null,

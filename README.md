@@ -215,6 +215,8 @@ Jede Zeile ist antippbar und öffnet die Position zum Ändern. Auf dem Computer 
 
 **Vermögensrechner** — Startkapital, monatliche oder jährliche Einzahlung, erwartete Rendite und Laufzeit eintragen. Er zeigt Endbetrag, Eingezahltes, Gewinn und die Kaufkraft in heutigem Geld, dazu den Verlauf als Diagramm. Er ändert nichts an deinen gespeicherten Daten.
 
+Beide Rechner sind im Reiter **Rechner** einzeln anklickbar — sie stehen nicht untereinander.
+
 **Zakat-Rechner** — rechnet die Zakat auf Geldvermögen nach **hanafitischer** und **schafiitischer** Lehre.
 
 - Rechtsschule wählen; die Schwelle (Nisab) wechselt automatisch mit — Silber bei Hanafi, Gold bei Schafi'i, beides umstellbar
@@ -223,6 +225,21 @@ Jede Zeile ist antippbar und öffnet die Position zum Ändern. Auf dem Computer 
 - Darunter steht, **wie viel du monatlich zurücklegen müsstest**, um den Jahresbetrag beisammen zu haben — der Betrag geteilt durch zwölf
 - Ein Knopf trägt die Zakat als jährliche Position ein. Sie taucht dann im Monatsblatt und in der Rücklage für Jahresrechnungen auf; ein zweiter Klick später aktualisiert nur den Betrag
 - **Alle Eingaben bleiben gespeichert** — Vermögenswerte, Rechtsschule und Preise. Beim nächsten Mal passt du nur an, was sich geändert hat
+
+### Laufende Spenden werden abgezogen
+
+Markierst du eine Position mit dem festen Tag **`Zakat`**, zählt sie als Zakat-Zahlung. Der Rechner zieht alle solchen Positionen von deiner Pflicht ab und zeigt, was noch offen ist:
+
+```
+Zakat fällig            50,00 € im Monat
+− Waisenhaus            15,00 €
+− Hungerhilfe           15,00 €
+= noch offen            20,00 €
+```
+
+Ein Knopf legt für den Rest eine monatliche Position **„Zakat (offener Rest)"** an. Sie erscheint im Monatsblatt, sodass die volle Summe verplant ist. Ändert sich dein Vermögen, passt derselbe Knopf den Betrag an; ist alles gedeckt, pausiert er die Position.
+
+Die Restposition zählt sich dabei nicht selbst mit — sonst würde sie sich selbst erfüllen.
 
 Für die Tagespreise von Gold und Silber gibt es einen Knopf **„Tagespreis holen"**. Er fragt zwei öffentliche Preisdienste nach dem heutigen Kurs und rechnet ihn in Euro je Gramm um. Du kannst die Preise genauso gut selbst nachschlagen und eintippen — beides wird gespeichert, mit Datum und dem Vermerk, woher der Wert stammt.
 
@@ -310,8 +327,8 @@ Alternativ: Auf der Startseite des Repositories **Add file → Upload files**, d
 Nach ein bis zwei Minuten ist die neue Fassung online.
 
 > **Wichtig bei Aktualisierungen:** Weil die App offline funktioniert, hält sich der Browser eine Kopie. Damit die neue Fassung ankommt, muss in der Datei `sw.js` die Zeile
-> `const CACHE_NAME = "lohnwerk-v9";`
-> auf eine neue Nummer geändert werden — also `lohnwerk-v10`, `lohnwerk-v11` und so weiter.
+> `const CACHE_NAME = "lohnwerk-v10";`
+> auf eine neue Nummer geändert werden — also `lohnwerk-v11`, `lohnwerk-v12` und so weiter.
 > Danach die App schließen und neu öffnen; manchmal braucht es zwei Starts. **Deine Daten bleiben dabei erhalten.**
 
 ---
