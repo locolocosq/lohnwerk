@@ -4964,8 +4964,8 @@ function zakatRechner(){
   karte.appendChild(wertFeld("handelsware", "Handelsware",
     "Waren, die du zum Weiterverkauf hältst — zum heutigen Verkaufswert."));
   karte.appendChild(wertFeld("anlagen", "Aktien, Fonds und Anlagen",
-    "Der Depotwert am Stichtag. Auch dann, wenn du damit später etwas Bestimmtes kaufen willst — "
-    + "siehe „Sparen für ein Eigenheim“ weiter unten."));
+    "Wie viel davon zakatpflichtig ist, wird unterschiedlich beurteilt — der volle Depotwert ist der "
+    + "vorsichtige Ansatz. Lies dazu „Sparen für ein Eigenheim, Aktien und Fonds“ weiter unten."));
   karte.appendChild(wertFeld("forderungen", "Geliehenes Geld",
     "Nur, womit du sicher rechnest, es zurückzubekommen."));
   karte.appendChild(wertFeld("schulden", "Fällige Schulden",
@@ -5230,19 +5230,31 @@ function zakatErklaerung(){
       + "aus der Zakat heraus — eine selbstgenutzte Wohnung ist nie zakatpflichtig, egal wie viel sie wert ist."));
 
     inhalt.appendChild(zwischen("Wie Aktien und Fonds bewertet werden"));
-    inhalt.appendChild(absatz(
-      "Dazu gibt es zwei verbreitete Wege. Welcher passt, hängt davon ab, warum du die Papiere hältst:"));
+    inhalt.appendChild(el("div",{ class:"banner warn", style:"margin-bottom:14px" },
+      icon("ic-warn"),
+      el("div",{ class:"inhalt-b", style:"line-height:1.55",
+        html:"Hier hört der Konsens auf. <strong>Aktien kommen in den klassischen Rechtsbüchern nicht vor</strong> — "
+           + "Hanafi und Schafi'i wurden ausformuliert, lange bevor es Aktiengesellschaften gab. Alles, was heute dazu "
+           + "gesagt wird, ist eine Ableitung heutiger Gelehrter, und die kommen zu unterschiedlichen Ergebnissen." })
+    ));
+    inhalt.appendChild(absatz("Drei Positionen werden ernsthaft vertreten:"));
     inhalt.appendChild(liste([
-      "<strong>Voller Kurswert:</strong> Der Depotwert am Stichtag zählt komplett. Das ist die vorsichtigere und "
-      + "weiter verbreitete Position — vor allem, wenn du ohnehin planst, die Papiere später zu verkaufen. "
-      + "Wer für ein Eigenheim anspart, will genau das tun.",
-      "<strong>Anteiliger Firmenwert:</strong> Manche moderne Gremien rechnen bei reinen Langzeitanlagen nur den Teil, "
-      + "der auf Bargeld, Vorräte und Forderungen des Unternehmens entfällt — nicht auf Gebäude und Maschinen. "
-      + "Das erfordert Zahlen aus den Geschäftsberichten und ist in der Praxis aufwendig."
+      "<strong>Voller Kurswert:</strong> Die Aktie wird wie Handelsware behandelt, der ganze Depotwert zählt. "
+      + "Am ehesten vertreten, wenn du aktiv handelst oder die Papiere ohnehin bald verkaufen willst.",
+      "<strong>Anteiliger Firmenwert:</strong> Nur der Teil zählt, der auf Bargeld, Vorräte und Forderungen des "
+      + "Unternehmens entfällt — nicht auf Fabriken und Maschinen. Diese Linie ist in der islamischen Finanzwelt "
+      + "stark vertreten, unter anderem in den Standards von AAOIFI. Sie erfordert Zahlen aus den Geschäftsberichten.",
+      "<strong>Nur die Erträge:</strong> Die Aktie selbst bleibt außen vor, zakatpflichtig sind Dividenden und "
+      + "Verkaufsgewinne. Begründet mit der Analogie zur vermieteten Immobilie — das Haus nicht, die Miete schon."
     ]));
     inhalt.appendChild(absatz(
-      "Trag im Feld oben den Betrag ein, der nach deiner Einschätzung richtig ist. Im Zweifel den vollen Depotwert — "
-      + "damit liegst du auf der sicheren Seite, und der Überschuss kommt den Empfängern zugute."));
+      "Der Unterschied ist erheblich: Bei 25.000 € im Depot kommen je nach Position rund 625 €, etwa 190 € oder "
+      + "deutlich weniger heraus. Diese App kann dir nicht abnehmen, welcher Meinung du folgst — sie rechnet mit "
+      + "dem Betrag, den du einträgst."));
+    inhalt.appendChild(absatz(
+      "Wenn du dich nicht festlegen willst und es um überschaubare Summen geht, ist der volle Depotwert der "
+      + "vorsichtige Weg: Zu viel gegeben schadet nicht, zu wenig schon. Bei größeren Beträgen lohnt sich die "
+      + "Frage an jemanden, der sich auskennt — dazu unten mehr."));
 
     inhalt.appendChild(zwischen("Was nicht mitzählt"));
     inhalt.appendChild(liste([
@@ -5319,14 +5331,34 @@ function zakatErklaerung(){
       el("div",{ class:"inhalt-b", style:"line-height:1.55",
         text:"Dieser Rechner ist ein Hilfsmittel, keine Rechtsauskunft. Er bildet die verbreiteten Grundregeln ab und kann Einzelfälle nicht abdecken." })
     ));
+    inhalt.appendChild(zwischen("Wo der Rechner solide ist"));
+    inhalt.appendChild(liste([
+      "Der Satz von 2,5 % und die Schwellen von 85 g Gold beziehungsweise 595 g Silber",
+      "Die Behandlung von Bargeld, Kontoguthaben, Gold und Silber",
+      "Dass die Absicht hinter einer Rücklage nicht von der Zakat befreit",
+      "Die Unterschiede zwischen Hanafi und Schafi'i beim Schuldenabzug und beim Zusammenrechnen"
+    ]));
+
+    inhalt.appendChild(zwischen("Wo es strittig wird"));
+    inhalt.appendChild(liste([
+      "<strong>Aktien und Fonds</strong> — drei vertretene Positionen, siehe den Abschnitt weiter oben",
+      "Betriebliche Altersvorsorge und Rentenansprüche, auf die du noch nicht zugreifen kannst",
+      "Krypto-Vermögen",
+      "Langfristige Kredite: welcher Teil als „fällige Schuld“ gilt",
+      "Ob eine vermietete Immobilie anders zu behandeln ist als der Ertrag daraus"
+    ]));
+
+    inhalt.appendChild(zwischen("Wen du fragen kannst"));
+    inhalt.appendChild(liste([
+      "Den Imam deiner Moschee — besonders, wenn er deiner Rechtsschule folgt",
+      "Islamische Rechtsgremien, die Fatwas zu Finanzfragen veröffentlichen",
+      "Islamische Finanzinstitute, die Zakat-Leitfäden herausgeben",
+      "Bei größeren Vermögen: jemanden, der beides kennt — Fiqh und moderne Anlageformen"
+    ]));
     inhalt.appendChild(absatz(
-      "Innerhalb jeder Rechtsschule gibt es zu vielen Fragen unterschiedliche Meinungen — etwa zur Bewertung von "
-      + "Aktien und Fonds, zu langfristigen Rücklagen für ein Haus, zu Rentenansprüchen, zu Krypto-Vermögen oder dazu, "
-      + "welche Schulden genau abgezogen werden dürfen."));
-    inhalt.appendChild(absatz(
-      "Recherchiere bei Unklarheiten selbst und frag jemanden, der sich damit auskennt — "
-      + "einen Gelehrten deiner Rechtsschule oder eine Stelle, der du vertraust. "
-      + "Verlass dich bei einer Pflichtabgabe nicht allein auf eine App."));
+      "Diese App rechnet, sie urteilt nicht. Sie sagt dir, was bei einer bestimmten Annahme herauskommt — "
+      + "welche Annahme richtig ist, entscheidest du. Bei einer Pflichtabgabe ist das keine Frage, "
+      + "die man einer Software überlassen sollte."));
     inhalt.appendChild(absatz(
       "Auch die Preise für Gold und Silber änderst du selbst: Lohnwerk holt bewusst nichts aus dem Netz. "
       + "Nimm den Tagespreis vom Stichtag deiner Rechnung."));
