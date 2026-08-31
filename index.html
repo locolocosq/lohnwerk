@@ -1709,6 +1709,13 @@ function prSaeubern(roh){
   const tagIds = new Set(p.tags.map(t => t.id));
   const wegIds = new Set(p.zahlungswege.map(w => w.id));
 
+  /* Daten aus der ersten Fassung kannten das Spar-Tag noch nicht. Dort war
+     Sparen eine ganz normale Ausgabe. Beim Übernehmen erkennen wir die
+     eindeutigen Fälle an Name oder alter Kategorie und setzen das Tag —
+     sonst wäre der Überschuss nach dem Umstieg zu niedrig. */
+  const istAlteFassung = !Array.isArray(roh.zahlungswege);
+  const SPAR_WOERTER = /spar(en|plan|buch|rate)?|notgroschen|r(ü|ue)cklage|altersvorsorge|verm(ö|oe)gensaufbau/i;
+
   p.einnahmen = (Array.isArray(roh.einnahmen) ? roh.einnahmen : []).map(x => {
     if(!x || typeof x !== "object") return null;
     return {
@@ -1727,6 +1734,12 @@ function prSaeubern(roh){
   p.ausgaben = (Array.isArray(roh.ausgaben) ? roh.ausgaben : []).map(x => {
     if(!x || typeof x !== "object") return null;
     const tags = (Array.isArray(x.tags) ? x.tags : []).filter(t => tagIds.has(t));
+
+    /* Alte Sparposten erkennen und markieren. */
+    if(istAlteFassung && !tags.includes(SPAR_TAG_ID)){
+      const text = (typeof x.name === "string" ? x.name : "") + " " + (typeof x.kategorie === "string" ? x.kategorie : "");
+      if(SPAR_WOERTER.test(text)) tags.unshift(SPAR_TAG_ID);
+    }
 
     /* Zahlungsweg: neue ID, sonst aus der ersten Fassung übersetzen. */
     let weg = null;
