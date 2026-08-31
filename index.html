@@ -2515,9 +2515,11 @@ function leerZustand(iconId, titel, text, knopfText, knopfAktion){
 }
 
 /** Eine Listenzeile mit Wischgesten. */
-function zeile({ name, unter, betragJahr, tags, pausiert, aufTippen, aufLoeschen, aufDuplizieren, id, mitAuswahl, zusatzRechts }){
+function zeile({ name, unter, betragJahr, tags, pausiert, aufTippen, aufLoeschen, aufDuplizieren, id, mitAuswahl, zusatzRechts, sparen }){
+  /* Sparposten stehen in Grün — so sieht man in der Liste sofort, welche
+     Zeilen kein Geld verbrennen, sondern nur umschichten. */
   const inhaltRechts = el("div",{ class:"zeile-rechts" },
-    el("div",{ class:"zeile-betrag", text: euroZ(betragJahr) }),
+    el("div",{ class:"zeile-betrag" + (sparen ? " gruen" : ""), text: euroZ(betragJahr) }),
     el("div",{ class:"zeile-betrag-2",
       text: S.einstellungen.ansicht === "jahr"
         ? euro(betragJahr/12) + " /Monat"
@@ -3015,26 +3017,40 @@ function zeichneAusgabenListe(){
     const aktiv = gefiltert.filter(a => a.aktiv !== false);
     const ausgabenTeil = aktiv.filter(a => !istSparen(a)).reduce((s,a)=>s+jahresCent(a),0);
     const sparTeil = aktiv.filter(istSparen).reduce((s,a)=>s+jahresCent(a),0);
+    const gesamt = ausgabenTeil + sparTeil;
     const istGefiltert = gefiltert.length !== p.ausgaben.length;
+
+    /* Oben steht immer die Summe ALLER Positionen dieser Liste. Erst darunter
+       wird aufgeteilt — sonst liest sich „davon Sparen" so, als wäre der
+       Sparbetrag in den Ausgaben enthalten. Ist er nicht: er kommt dazu. */
+    const unterzeile = (farbe, name, neben, wert, fett) =>
+      el("div",{ style:"display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-top:10px" },
+        el("span",{ style:"min-width:0" },
+          el("span",{ class:"t-label", style:"display:inline-flex;align-items:center;gap:7px" },
+            el("span",{ style:`width:8px;height:8px;border-radius:2px;background:${farbe};display:inline-block;flex:none` }),
+            el("span",{ text:name })
+          ),
+          neben ? el("span",{ class:"t-klein", style:"display:block;margin-left:15px", text:neben }) : null
+        ),
+        el("span",{ style:`font-size:16px;font-weight:${fett?640:600};font-variant-numeric:tabular-nums;white-space:nowrap;color:${farbe==="var(--gruen)"?"var(--gruen)":"var(--text)"}`,
+          text:wert })
+      );
+
     summeBox.appendChild(el("div",{ class:"karte eng" },
       el("div",{ style:"display:flex;align-items:baseline;justify-content:space-between;gap:12px" },
         el("div",{},
-          el("div",{ class:"t-kapitaelchen", text: istGefiltert ? "Auswahl "+zeitraumWort() : "Ausgaben "+zeitraumWort() }),
+          el("div",{ class:"t-kapitaelchen",
+            text: (istGefiltert ? "Auswahl " : "Diese Liste ") + zeitraumWort() }),
           el("div",{ class:"t-klein", style:"margin-top:2px",
             text:`${gefiltert.length} von ${p.ausgaben.length} ${plural(p.ausgaben.length,"Position","Positionen")}` })
         ),
         el("div",{ style:"font-size:24px;font-weight:640;letter-spacing:-.02em;font-variant-numeric:tabular-nums;white-space:nowrap",
-          text:euroZ(ausgabenTeil) })
+          text:euroZ(gesamt) })
       ),
-      sparTeil > 0 ? el("div",{ style:"display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-top:10px;padding-top:10px;border-top:1px solid var(--linie)" },
-        el("span",{ class:"t-label" },
-          el("span",{ style:"display:inline-flex;align-items:center;gap:7px" },
-            el("span",{ style:"width:8px;height:8px;border-radius:2px;background:var(--gruen);display:inline-block" }),
-            el("span",{ text:"davon Sparen — keine echte Ausgabe" })
-          )
-        ),
-        el("span",{ class:"gruen", style:"font-size:16px;font-weight:640;font-variant-numeric:tabular-nums;white-space:nowrap",
-          text:euroZ(sparTeil) })
+      /* Die Aufteilung erscheint nur, wenn es überhaupt Sparposten gibt. */
+      sparTeil > 0 ? el("div",{ style:"margin-top:12px;padding-top:12px;border-top:1px solid var(--linie)" },
+        unterzeile("var(--text-3)", "Ausgaben", "Geld, das weg ist", euroZ(ausgabenTeil), false),
+        unterzeile("var(--gruen)", "Sparen", "bleibt dein Geld", euroZ(sparTeil), true)
       ) : null
     ));
   }
@@ -3101,10 +3117,15 @@ function zeichneAusgabenListe(){
       return sb - sa || collator.compare(a[0], b[0]);
     });
     sortierteGruppen.forEach(([name, positionen]) => {
-      const summe = positionen.filter(x=>x.aktiv!==false).reduce((s,x)=>s+jahresCent(x),0);
+      const aktivG = positionen.filter(x=>x.aktiv!==false);
+      const summe = aktivG.reduce((s,x)=>s+jahresCent(x),0);
+      /* Besteht die Gruppe komplett aus Sparposten, gehört sie grün
+         beschriftet — sonst wirkt die Summe wie zusätzliche Ausgaben. */
+      const nurSparen = aktivG.length > 0 && aktivG.every(istSparen);
       box.appendChild(el("div",{ class:"liste-titel" },
-        el("span",{ class:"t-kapitaelchen", text:name }),
-        el("span",{ class:"t-label zahl", text:euroZ(summe) })
+        el("span",{ class:"t-kapitaelchen", style: nurSparen ? "color:var(--gruen)" : null,
+          text: nurSparen ? name + " · bleibt dein Geld" : name }),
+        el("span",{ class:"t-label zahl", style: nurSparen ? "color:var(--gruen)" : null, text:euroZ(summe) })
       ));
       const liste = el("div",{ class:"liste" });
       sortieren(positionen).forEach(a => liste.appendChild(ausgabenZeile(a)));
@@ -3129,6 +3150,7 @@ function ausgabenZeile(a){
     tags,
     pausiert: a.aktiv === false,
     mitAuswahl: true,
+    sparen: istSparen(a),
     aufTippen: () => ausgabeDialog(a),
     aufLoeschen: () => ausgabeLoeschen(a),
     aufDuplizieren: () => ausgabeDuplizieren(a)
