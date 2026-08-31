@@ -926,6 +926,96 @@ details.klapp .klapp-inhalt{padding-bottom:var(--s4);}
 @media (min-width:900px){.aktionsleiste{bottom:0;left:236px;}}
 .aktionsleiste .zaehler{flex:1;font-size:14px;font-weight:600;min-width:0;}
 
+/* ============================================================
+   MONATSBLATT — die schlichte Tabellenansicht
+   Nachbau der gewohnten Tabellenkalkulation: Spalten nebeneinander,
+   je Zeile Bezeichnung, Monatsbetrag und Jahresbetrag.
+   ============================================================ */
+.blatt{display:grid;gap:var(--s3);}
+@media (min-width:760px){
+  .blatt.zweispaltig{grid-template-columns:repeat(2,minmax(0,1fr));}
+}
+.blatt-block{
+  background:var(--karte);border-radius:var(--r-karte);
+  box-shadow:var(--schatten);overflow:hidden;
+}
+.blatt-kopf{
+  display:flex;align-items:center;gap:9px;
+  padding:var(--s4) var(--s4) var(--s3);
+  border-bottom:1px solid var(--linie);
+}
+.blatt-kopf svg{width:17px;height:17px;color:var(--text-2);flex:none;stroke-width:1.9;}
+.blatt-kopf .titel{
+  flex:1;min-width:0;font-size:13px;font-weight:650;
+  letter-spacing:.04em;text-transform:uppercase;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.blatt-zeile{
+  display:grid;grid-template-columns:1fr auto auto;
+  align-items:baseline;gap:var(--s3);
+  padding:9px var(--s4);
+  border-top:1px solid var(--linie);
+  font-size:14.5px;
+}
+.blatt-zeile:first-of-type{border-top:0;}
+.blatt-zeile .bz-name{
+  min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.blatt-zeile .bz-monat,.blatt-zeile .bz-jahr{
+  font-variant-numeric:tabular-nums;white-space:nowrap;text-align:right;
+}
+.blatt-zeile .bz-monat{font-weight:600;min-width:82px;}
+.blatt-zeile .bz-jahr{font-size:12.5px;color:var(--text-2);min-width:88px;}
+.blatt-zeile.spalten-titel{
+  border-top:0;padding-top:6px;padding-bottom:6px;
+  font-size:11px;font-weight:600;color:var(--text-2);
+  letter-spacing:.05em;text-transform:uppercase;
+}
+.blatt-zeile.spalten-titel .bz-monat,.blatt-zeile.spalten-titel .bz-jahr{font-weight:600;font-size:11px;}
+.blatt-zeile.summe{
+  border-top:1.5px solid var(--linie-stark);
+  background:var(--karte-2);font-weight:650;
+}
+.blatt-zeile.summe .bz-jahr{color:var(--text-2);font-weight:600;}
+.blatt-zeile.leer .bz-name{color:var(--text-3);font-style:italic;}
+.blatt-zeile.gruen-zeile .bz-monat{color:var(--gruen);}
+
+/* Die Ergebniszeilen ganz unten */
+.blatt-ergebnis{
+  background:var(--karte);border-radius:var(--r-karte);
+  box-shadow:var(--schatten);overflow:hidden;
+}
+.blatt-ergebnis .ez{
+  display:grid;grid-template-columns:auto 1fr auto auto;
+  align-items:center;gap:var(--s3);
+  padding:var(--s4);border-top:1px solid var(--linie);
+}
+.blatt-ergebnis .ez:first-child{border-top:0;}
+.blatt-ergebnis .ez .sym-feld{
+  width:36px;height:36px;border-radius:10px;flex:none;
+  display:flex;align-items:center;justify-content:center;
+  background:var(--karte-2);color:var(--text-2);
+}
+.blatt-ergebnis .ez .sym-feld svg{width:18px;height:18px;stroke-width:1.9;}
+.blatt-ergebnis .ez .ez-name{min-width:0;}
+.blatt-ergebnis .ez .ez-name .haupt{font-size:16px;font-weight:600;letter-spacing:-.01em;}
+.blatt-ergebnis .ez .ez-name .neben{font-size:12.5px;color:var(--text-2);margin-top:1px;}
+.blatt-ergebnis .ez .ez-monat{
+  font-size:19px;font-weight:650;font-variant-numeric:tabular-nums;
+  letter-spacing:-.02em;white-space:nowrap;text-align:right;
+}
+.blatt-ergebnis .ez .ez-jahr{
+  font-size:12.5px;color:var(--text-2);font-variant-numeric:tabular-nums;
+  white-space:nowrap;text-align:right;min-width:88px;
+}
+@media (max-width:420px){
+  .blatt-ergebnis .ez{grid-template-columns:auto 1fr auto;}
+  .blatt-ergebnis .ez .ez-jahr{grid-column:3;text-align:right;}
+  .blatt-ergebnis .ez .ez-monat{grid-column:3;}
+  .blatt-zeile{grid-template-columns:1fr auto;}
+  .blatt-zeile .bz-jahr{grid-column:2;grid-row:2;}
+}
+
 /* Tabelle für Konto-Summen */
 .mini-tabelle{width:100%;border-collapse:collapse;font-size:14.5px;}
 .mini-tabelle th{
@@ -1281,7 +1371,7 @@ const WOCHENTAGE = ["Mo","Di","Mi","Do","Fr","Sa","So"];
 
 /* Das Spar-Tag ist fest eingebaut und lässt sich nicht löschen.
    Alles, was damit markiert ist, gilt nicht als Ausgabe, sondern als
-   Geld, das dir erhalten bleibt — mit eigenem Zinssatz je Position. */
+   Geld, das dir erhalten bleibt — mit eigener Rendite je Position. */
 const SPAR_TAG_ID = "tag_sparen";
 const SPAR_TAG = { id:SPAR_TAG_ID, name:"Sparen", farbe:"p2", fest:true };
 
@@ -1771,10 +1861,13 @@ function prSaeubern(roh){
       prioritaet: PRIORITAETEN[x.prioritaet] ? x.prioritaet : "variabel",
       aktiv: x.aktiv !== false,
       notiz: notiz.slice(0,400),
-      /* Nur für Sparposten: Zinssatz in Prozent pro Jahr und der Betrag,
+      /* Nur für Sparposten: erwartete Rendite in Prozent pro Jahr und der Betrag,
          der heute schon zurückgelegt ist. Beides pflegt der Nutzer selbst —
          Lohnwerk schreibt Bestände niemals von allein fort. */
-      zinsProzent: Number.isFinite(+x.zinsProzent) ? klemmen(+x.zinsProzent,0,30) : 0,
+      /* Das Feld hieß in einer früheren Fassung „zinsProzent". Beim Laden
+         nehmen wir den alten Wert mit, damit nichts verlorengeht. */
+      renditeProzent: Number.isFinite(+x.renditeProzent) ? klemmen(+x.renditeProzent,0,30)
+                    : Number.isFinite(+x.zinsProzent) ? klemmen(+x.zinsProzent,0,30) : 0,
       bestandCent: Number.isFinite(+x.bestandCent) ? Math.max(0, Math.round(+x.bestandCent)) : 0,
       zielCent: Number.isFinite(+x.zielCent) ? Math.max(0, Math.round(+x.zielCent)) : 0
     };
@@ -2036,7 +2129,7 @@ function sparUebersicht(){
     pos: a,
     jahr: jahresCent(a),
     monat: jahresCent(a) / 12,
-    zins: Number.isFinite(a.zinsProzent) ? a.zinsProzent : 0,
+    rendite: Number.isFinite(a.renditeProzent) ? a.renditeProzent : 0,
     bestand: Number.isFinite(a.bestandCent) ? a.bestandCent : 0,
     ziel: Number.isFinite(a.zielCent) ? a.zielCent : 0
   })).sort((a,b) => b.jahr - a.jahr);
@@ -2044,14 +2137,14 @@ function sparUebersicht(){
   const sparplanJahr = posten.reduce((s,x) => s + x.jahr, 0);
   const bestandGesamt = posten.reduce((s,x) => s + x.bestand, 0);
   const k = kennzahlen();
-  /* Der Mischzins: nach Sparbetrag gewichtet. Ohne Beiträge nach Bestand. */
+  /* Die Mischrendite: nach Sparbetrag gewichtet. Ohne Beiträge nach Bestand. */
   const basis = sparplanJahr > 0 ? sparplanJahr : bestandGesamt;
-  const mischZins = basis > 0
-    ? posten.reduce((s,x) => s + x.zins * ((sparplanJahr > 0 ? x.jahr : x.bestand) / basis), 0)
+  const mischRendite = basis > 0
+    ? posten.reduce((s,x) => s + x.rendite * ((sparplanJahr > 0 ? x.jahr : x.bestand) / basis), 0)
     : 0;
 
   return {
-    posten, sparplanJahr, bestandGesamt, mischZins,
+    posten, sparplanJahr, bestandGesamt, mischRendite,
     freiJahr: k.freiJahr,
     gesamtSparenJahr: k.ueberschussJahr,   // Sparplan + was übrig bleibt
     sparquote: k.sparquote
@@ -2060,17 +2153,17 @@ function sparUebersicht(){
 
 /**
  * Entwicklung eines Sparpostens über N Jahre.
- * Liefert je Jahr: eingezahlt, Zinsen, Endwert und Kaufkraft in heutigem Geld.
+ * Liefert je Jahr: eingezahlt, Gewinn, Endwert und Kaufkraft in heutigem Geld.
  *
  * @param startCent   was heute schon da ist
  * @param proJahrCent was jährlich dazukommt
- * @param zinsProzent Zinssatz pro Jahr
+ * @param renditeProzent erwartete Rendite pro Jahr
  * @param jahre       Laufzeit
  * @param inflation   angenommene Geldentwertung pro Jahr
  * @param steigerung  jährliche Erhöhung des Sparbetrags
  */
-function sparVerlauf(startCent, proJahrCent, zinsProzent, jahre, inflation = 0, steigerung = 0){
-  const r = (Number.isFinite(zinsProzent) ? zinsProzent : 0) / 100;
+function sparVerlauf(startCent, proJahrCent, renditeProzent, jahre, inflation = 0, steigerung = 0){
+  const r = (Number.isFinite(renditeProzent) ? renditeProzent : 0) / 100;
   const i = (Number.isFinite(inflation) ? inflation : 0) / 100;
   const g = (Number.isFinite(steigerung) ? steigerung : 0) / 100;
   const reihe = [];
@@ -2078,9 +2171,9 @@ function sparVerlauf(startCent, proJahrCent, zinsProzent, jahre, inflation = 0, 
   let eingezahlt = wert;
   let rate = Math.max(0, proJahrCent || 0);
 
-  reihe.push({ jahr:0, wert, eingezahlt, zinsen:0, kaufkraft:wert });
+  reihe.push({ jahr:0, wert, eingezahlt, gewinn:0, kaufkraft:wert });
   for(let j = 1; j <= jahre; j++){
-    // Monatliche Einzahlung, monatlich verzinst — das trifft die Realität besser.
+    // Monatliche Einzahlung, monatlich verrechnet — das trifft die Realität besser.
     const rm = r / 12;
     const monatsRate = rate / 12;
     for(let m = 0; m < 12; m++){
@@ -2092,7 +2185,7 @@ function sparVerlauf(startCent, proJahrCent, zinsProzent, jahre, inflation = 0, 
       jahr: j,
       wert: Math.round(wert),
       eingezahlt: Math.round(eingezahlt),
-      zinsen: Math.round(wert - eingezahlt),
+      gewinn: Math.round(wert - eingezahlt),
       kaufkraft: Math.round(kaufkraft)
     });
     rate = rate * (1 + g);
@@ -2101,7 +2194,7 @@ function sparVerlauf(startCent, proJahrCent, zinsProzent, jahre, inflation = 0, 
 }
 
 /**
- * Der Gesamtverlauf über alle Sparposten — jeder mit seinem eigenen Zinssatz.
+ * Der Gesamtverlauf über alle Sparposten — jeder mit seiner eigenen Rendite.
  * Optional zählt der frei verfügbare Rest mit (er wird ja auch gespart).
  */
 function sparVerlaufGesamt(jahre, mitFreiemRest = true){
@@ -2109,20 +2202,20 @@ function sparVerlaufGesamt(jahre, mitFreiemRest = true){
   const inf = S.einstellungen.inflation || 0;
   const stg = S.einstellungen.sparSteigerung || 0;
   const gesamt = [];
-  for(let j = 0; j <= jahre; j++) gesamt.push({ jahr:j, wert:0, eingezahlt:0, zinsen:0, kaufkraft:0 });
+  for(let j = 0; j <= jahre; j++) gesamt.push({ jahr:j, wert:0, eingezahlt:0, gewinn:0, kaufkraft:0 });
 
   u.posten.forEach(x => {
-    const reihe = sparVerlauf(x.bestand, x.jahr, x.zins, jahre, inf, stg);
+    const reihe = sparVerlauf(x.bestand, x.jahr, x.rendite, jahre, inf, stg);
     reihe.forEach((r,idx) => {
       gesamt[idx].wert += r.wert;
       gesamt[idx].eingezahlt += r.eingezahlt;
-      gesamt[idx].zinsen += r.zinsen;
+      gesamt[idx].gewinn += r.gewinn;
       gesamt[idx].kaufkraft += r.kaufkraft;
     });
   });
 
-  /* Was am Monatsende übrig bleibt, landet ohne Zinsannahme auf der Seite —
-     unverzinst, weil unklar ist, wo es liegt. Ehrlicher als zu raten. */
+  /* Was am Monatsende übrig bleibt, landet ohne Gewinnannahme auf der Seite —
+     ohne Zuwachs, weil unklar ist, wo es liegt. Ehrlicher als zu raten. */
   if(mitFreiemRest && u.freiJahr > 0){
     const reihe = sparVerlauf(0, u.freiJahr, 0, jahre, inf, stg);
     reihe.forEach((r,idx) => {
@@ -2135,11 +2228,11 @@ function sparVerlaufGesamt(jahre, mitFreiemRest = true){
 }
 
 /** Wie lange dauert es, bis ein Sparziel erreicht ist? Monate oder null. */
-function monateBisZiel(startCent, proMonatCent, zielCent, zinsProzent){
+function monateBisZiel(startCent, proMonatCent, zielCent, renditeProzent){
   if(!(zielCent > 0)) return null;
   if(startCent >= zielCent) return 0;
   if(!(proMonatCent > 0)) return null;
-  const rm = (zinsProzent || 0) / 100 / 12;
+  const rm = (renditeProzent || 0) / 100 / 12;
   let wert = startCent;
   for(let m = 1; m <= 1200; m++){          // höchstens 100 Jahre
     wert = wert * (1 + rm) + proMonatCent;
@@ -2307,7 +2400,7 @@ function arbeitsstunden(jahresBetragCent){
 
 /**
  * Hochrechnung über N Monate: Was ist dann da, und was ist es real noch wert?
- * Rechnet jeden Sparposten mit seinem eigenen Zinssatz.
+ * Rechnet jeden Sparposten mit seiner eigenen Rendite.
  */
 function hochrechnung(monate){
   const jahre = monate / 12;
@@ -2320,7 +2413,7 @@ function hochrechnung(monate){
   return {
     wert:       misch(a.wert, b.wert),
     eingezahlt: misch(a.eingezahlt, b.eingezahlt),
-    zinsen:     misch(a.zinsen, b.zinsen),
+    gewinn:     misch(a.gewinn, b.gewinn),
     kaufkraft:  misch(a.kaufkraft, b.kaufkraft)
   };
 }
@@ -2338,8 +2431,8 @@ function postenUnterzeile(a){
     teile.push(`im ${MONATE_KURZ[(a.startMonat||1)-1]}`);
   }
   teile.push(wegFuer(a).name);
-  if(istSparen(a) && a.zinsProzent > 0){
-    teile.push(nfProzent.format(a.zinsProzent).replace(",0","") + " % Zinsen");
+  if(istSparen(a) && a.renditeProzent > 0){
+    teile.push(nfProzent.format(a.renditeProzent).replace(",0","") + " % Rendite");
   }
   if(a.aktiv === false) teile.push("pausiert");
   return teile.join(" · ");
@@ -3680,10 +3773,11 @@ function tagDetailDialog(eintrag, monat){
    ================================================================ */
 
 const AUSWERTUNG_REITER = [
-  { id:"start",    name:"Monatsanfang", icon:"ic-wiederkehr" },
-  { id:"ausgaben", name:"Ausgaben",     icon:"ic-ausgaben" },
-  { id:"sparen",   name:"Sparen",       icon:"ic-sparen" },
-  { id:"analyse",  name:"Analyse",      icon:"ic-auswertung" }
+  { id:"start",     name:"Monatsblatt", icon:"ic-ausgaben" },
+  { id:"ausgaben",  name:"Ausgaben",    icon:"ic-auswertung" },
+  { id:"sparen",    name:"Sparen",      icon:"ic-sparen" },
+  { id:"analyse",   name:"Analyse",     icon:"ic-wachstum" },
+  { id:"werkzeuge", name:"Werkzeuge",   icon:"ic-ziel" }
 ];
 
 function zeichneAuswertung(){
@@ -3717,99 +3811,181 @@ function zeichneAuswertung(){
   wurzel.appendChild(box);
 
   switch(UI.auswertungTab){
-    case "sparen":   reiterSparen(box); break;
-    case "analyse":  reiterAnalyse(box); break;
-    case "ausgaben": reiterAusgaben(box); break;
-    default:         reiterMonatsanfang(box);
+    case "sparen":    reiterSparen(box); break;
+    case "analyse":   reiterAnalyse(box); break;
+    case "ausgaben":  reiterAusgaben(box); break;
+    case "werkzeuge": reiterWerkzeuge(box); break;
+    default:          reiterMonatsblatt(box);
   }
 }
 
 /* ----------------------------------------------------------------
-   REITER 1 — MONATSANFANG
-   Was muss ich wohin überweisen, sobald das Gehalt da ist?
+   Das Monatsblatt gruppiert die Posten nach Zahlungsweg — genau wie
+   die gewohnte Tabelle mit den Spalten "Bankkonto" und "Sparmappe".
    ---------------------------------------------------------------- */
-function reiterMonatsanfang(wurzel){
-  const k = kennzahlen();
-  const plan = ueberweisungsplan();
-
-  /* Bar-Bedarf, prominent */
-  wurzel.appendChild(el("div",{ class:"karte" },
-    el("div",{ style:"display:flex;align-items:center;gap:14px" },
-      el("div",{ style:"width:44px;height:44px;border-radius:12px;background:var(--akzent-weich);color:var(--akzent);display:flex;align-items:center;justify-content:center;flex:none" },
-        icon("ic-bar", 24)),
-      el("div",{ style:"flex:1;min-width:0" },
-        el("div",{ class:"t-kapitaelchen", text:"Bar bereitlegen" }),
-        el("div",{ style:"font-size:30px;font-weight:650;letter-spacing:-.025em;font-variant-numeric:tabular-nums;margin-top:2px",
-          text:euroZ(k.barJahr) })
-      )
-    ),
-    el("p",{ class:"t-klein", style:"margin-top:10px;line-height:1.5",
-      text: k.barJahr > 0
-        ? `So viel brauchst du ${zeitraumWort()} in bar. Alles Weitere läuft über deine Konten.`
-        : "Aktuell ist kein Posten über einen Bargeld-Zahlungsweg eingetragen." })
+function blattBlock(titel, iconId, posten, gruen){
+  const block = el("div",{ class:"blatt-block" });
+  block.appendChild(el("div",{ class:"blatt-kopf" },
+    icon(iconId),
+    el("span",{ class:"titel", style: gruen ? "color:var(--gruen)" : null, text:titel })
+  ));
+  block.appendChild(el("div",{ class:"blatt-zeile spalten-titel" },
+    el("span",{ class:"bz-name", text:"Posten" }),
+    el("span",{ class:"bz-monat", text:"Monat" }),
+    el("span",{ class:"bz-jahr", text:"Jahr" })
   ));
 
-  /* Der eigentliche Plan */
-  if(plan.eintraege.length > 0){
-    const zeilenText = plan.eintraege.map(e =>
-      `${euroZ(e.jahr)} — ${e.name}: ${e.text}`).join("\n");
-    const gesamtText = `Vom Einkommen (${euroZ(k.einnahmenJahr)}):\n` + zeilenText
-      + (plan.freiJahr > 0 ? `\n${euroZ(plan.freiJahr)} — bleibt frei verfügbar` : "")
-      + (plan.ruecklageJahr > 0 ? `\n\nHinweis: davon ${euro(plan.ruecklageJahr/12)} monatlich für Jahresrechnungen zurücklegen.` : "");
-
-    const karte = el("div",{ class:"karte" },
-      el("div",{ class:"karte-kopf" },
-        el("h2",{ text:"Dein Monatsanfang" }),
-        el("button",{ class:"knopf leise klein", type:"button", text:"Kopieren",
-          onclick:(ev) => kopieren(gesamtText, ev.currentTarget) })
-      ),
-      el("p",{ class:"t-klein", style:"margin-top:-8px;margin-bottom:16px;line-height:1.5",
-        text:"Sobald das Gehalt da ist, verteilst du es so. Danach musst du bis zum nächsten Monat nichts mehr eintragen." })
-    );
-
-    plan.eintraege.forEach((e,i) => {
-      karte.appendChild(el("div",{ class:"datenzeile", style:"align-items:center" + (i===0 ? ";border-top:0" : "") },
-        el("span",{ class:"dz-name", style:"display:flex;align-items:center;gap:11px;flex:1;min-width:0" },
-          el("span",{ style:`width:34px;height:34px;border-radius:9px;flex:none;display:flex;align-items:center;justify-content:center;`
-            + `background:${e.sparen ? "var(--gruen-weich)" : "var(--karte-2)"};color:${e.sparen ? "var(--gruen)" : "var(--text-2)"}` },
-            icon(e.icon, 17)),
-          el("span",{ style:"min-width:0" },
-            el("span",{ style:"display:block", text:e.name }),
-            el("span",{ class:"neben", text:e.text })
-          )
-        ),
-        el("span",{ class:"dz-wert " + (e.sparen ? "gruen" : ""), text:euroZ(e.jahr) })
-      ));
-    });
-
-    if(plan.freiJahr !== 0){
-      karte.appendChild(el("div",{ class:"datenzeile", style:"align-items:center" },
-        el("span",{ class:"dz-name", style:"display:flex;align-items:center;gap:11px;flex:1;min-width:0" },
-          el("span",{ style:"width:34px;height:34px;border-radius:9px;flex:none;display:flex;align-items:center;justify-content:center;background:var(--karte-2);color:var(--text-2)" },
-            icon("ic-sonne", 17)),
-          el("span",{ style:"min-width:0" },
-            el("span",{ style:"display:block", text:"Frei verfügbar" }),
-            el("span",{ class:"neben", text: plan.freiJahr > 0 ? "bleibt dir für alles Weitere" : "hier fehlt Geld" })
-          )
-        ),
-        el("span",{ class:"dz-wert " + (plan.freiJahr < 0 ? "rot" : ""), text:euroZ(plan.freiJahr) })
-      ));
-    }
-    wurzel.appendChild(karte);
+  if(posten.length === 0){
+    block.appendChild(el("div",{ class:"blatt-zeile leer" },
+      el("span",{ class:"bz-name", text:"nichts eingetragen" }),
+      el("span",{ class:"bz-monat", text:"—" }),
+      el("span",{ class:"bz-jahr", text:"—" })
+    ));
+    return { block, summe:0 };
   }
 
-  /* Rücklage für Jahresrechnungen */
+  const sortiert = posten.slice().sort((a,b) => jahresCent(b) - jahresCent(a));
+  let summe = 0;
+  sortiert.forEach(a => {
+    const jahr = jahresCent(a);
+    summe += jahr;
+    block.appendChild(el("button",{ class:"blatt-zeile" + (gruen ? " gruen-zeile" : ""),
+      type:"button", style:"width:100%;text-align:left",
+      onclick:() => ausgabeDialog(a) },
+      el("span",{ class:"bz-name", text:a.name, title:a.name }),
+      el("span",{ class:"bz-monat", text:euro(jahr/12) }),
+      el("span",{ class:"bz-jahr", text:euro(jahr) })
+    ));
+  });
+
+  block.appendChild(el("div",{ class:"blatt-zeile summe" },
+    el("span",{ class:"bz-name", text:"Summe" }),
+    el("span",{ class:"bz-monat", style: gruen ? "color:var(--gruen)" : null, text:euro(summe/12) }),
+    el("span",{ class:"bz-jahr", text:euro(summe) })
+  ));
+  return { block, summe };
+}
+
+function reiterMonatsblatt(wurzel){
+  const p = P();
+  const k = kennzahlen();
+
+  /* --- Einkommen --- */
+  const einBlock = el("div",{ class:"blatt-block" });
+  einBlock.appendChild(el("div",{ class:"blatt-kopf" },
+    icon("ic-einnahmen"),
+    el("span",{ class:"titel", text:"Einkommen" })
+  ));
+  einBlock.appendChild(el("div",{ class:"blatt-zeile spalten-titel" },
+    el("span",{ class:"bz-name", text:"Quelle" }),
+    el("span",{ class:"bz-monat", text:"Monat" }),
+    el("span",{ class:"bz-jahr", text:"Jahr" })
+  ));
+  const einAktiv = aktiveEinnahmen().slice().sort((a,b) => jahresCent(b) - jahresCent(a));
+  if(einAktiv.length === 0){
+    einBlock.appendChild(el("div",{ class:"blatt-zeile leer" },
+      el("span",{ class:"bz-name", text:"noch keine Einnahme eingetragen" }),
+      el("span",{ class:"bz-monat", text:"—" }),
+      el("span",{ class:"bz-jahr", text:"—" })
+    ));
+  } else {
+    einAktiv.forEach(e => {
+      const jahr = jahresCent(e);
+      einBlock.appendChild(el("button",{ class:"blatt-zeile", type:"button", style:"width:100%;text-align:left",
+        onclick:() => einnahmeDialog(e) },
+        el("span",{ class:"bz-name", text:e.name, title:e.name }),
+        el("span",{ class:"bz-monat", text:euro(jahr/12) }),
+        el("span",{ class:"bz-jahr", text:euro(jahr) })
+      ));
+    });
+    einBlock.appendChild(el("div",{ class:"blatt-zeile summe" },
+      el("span",{ class:"bz-name", text:"Summe" }),
+      el("span",{ class:"bz-monat", text:euro(k.einnahmenJahr/12) }),
+      el("span",{ class:"bz-jahr", text:euro(k.einnahmenJahr) })
+    ));
+  }
+  wurzel.appendChild(el("div",{ class:"blatt", style:"margin-bottom:12px" }, einBlock));
+
+  /* --- Ein Block je Zahlungsweg, Sparen getrennt --- */
+  const posten = aktivePosten();
+  const bloecke = [];
+  p.zahlungswege.forEach(w => {
+    const eigene = posten.filter(a => wegFuer(a).id === w.id && !istSparen(a));
+    if(eigene.length > 0) bloecke.push(blattBlock(w.name, w.icon, eigene, false));
+  });
+  const sparPosten = posten.filter(istSparen);
+  if(sparPosten.length > 0) bloecke.push(blattBlock("Sparen", "ic-sparen", sparPosten, true));
+
+  if(bloecke.length > 0){
+    const raster = el("div",{ class:"blatt" + (bloecke.length > 1 ? " zweispaltig" : ""), style:"margin-bottom:12px" });
+    bloecke.forEach(b => raster.appendChild(b.block));
+    wurzel.appendChild(raster);
+  }
+
+  /* --- Die Ergebniszeilen: was wohin --- */
+  const ergebnis = el("div",{ class:"blatt-ergebnis", style:"margin-bottom:12px" });
+  const ezZeile = (iconId, name, neben, jahr, farbe) => el("div",{ class:"ez" },
+    el("span",{ class:"sym-feld", style: farbe ? `background:${farbe==="var(--gruen)"?"var(--gruen-weich)":"var(--rot-weich)"};color:${farbe}` : null },
+      icon(iconId)),
+    el("span",{ class:"ez-name" },
+      el("span",{ class:"haupt", text:name }),
+      el("span",{ class:"neben", text:neben })
+    ),
+    el("span",{ class:"ez-monat", style: farbe ? `color:${farbe}` : null, text:euro(jahr/12) }),
+    el("span",{ class:"ez-jahr", text:euro(jahr)+" /Jahr" })
+  );
+
+  /* Bargeld-Wege ergeben das, was abgehoben werden muss. */
+  let abhebenJahr = 0, kontoJahr = 0;
+  posten.filter(a => !istSparen(a)).forEach(a => {
+    if(wegFuer(a).kontotyp === "bargeld") abhebenJahr += jahresCent(a);
+    else kontoJahr += jahresCent(a);
+  });
+
+  if(kontoJahr > 0) ergebnis.appendChild(ezZeile("ic-bank", "Auf dem Konto lassen",
+    "für Lastschriften, Daueraufträge und Karte", kontoJahr));
+  if(abhebenJahr > 0) ergebnis.appendChild(ezZeile("ic-bar", "Abheben",
+    "alles, was du in bar bezahlst", abhebenJahr));
+  if(k.sparplanJahr > 0) ergebnis.appendChild(ezZeile("ic-sparen", "Zur Seite legen",
+    "dein fester Sparplan", k.sparplanJahr, "var(--gruen)"));
+  ergebnis.appendChild(ezZeile(k.freiJahr >= 0 ? "ic-sonne" : "ic-warn",
+    k.freiJahr >= 0 ? "Bleibt übrig" : "Fehlt",
+    k.freiJahr >= 0 ? "frei verfügbar — was liegen bleibt, ist auch gespart" : "hier geht die Rechnung nicht auf",
+    k.freiJahr, k.freiJahr >= 0 ? "var(--gruen)" : "var(--rot)"));
+  wurzel.appendChild(ergebnis);
+
+  /* Probe: Die Rechnung muss sichtbar aufgehen. */
+  wurzel.appendChild(el("div",{ class:"karte flach" },
+    el("div",{ class:"t-kapitaelchen", style:"margin-bottom:10px", text:"Die Rechnung" }),
+    el("div",{ style:"font-size:14.5px;line-height:1.9;font-variant-numeric:tabular-nums" },
+      el("div",{ style:"display:flex;justify-content:space-between;gap:12px" },
+        el("span",{ text:"Einkommen" }), el("span",{ text:euro(k.einnahmenJahr/12) })),
+      el("div",{ style:"display:flex;justify-content:space-between;gap:12px;color:var(--text-2)" },
+        el("span",{ text:"− auf dem Konto lassen" }), el("span",{ text:euro(kontoJahr/12) })),
+      el("div",{ style:"display:flex;justify-content:space-between;gap:12px;color:var(--text-2)" },
+        el("span",{ text:"− abheben" }), el("span",{ text:euro(abhebenJahr/12) })),
+      el("div",{ style:"display:flex;justify-content:space-between;gap:12px;color:var(--text-2)" },
+        el("span",{ text:"− zur Seite legen" }), el("span",{ text:euro(k.sparplanJahr/12) })),
+      el("div",{ style:"display:flex;justify-content:space-between;gap:12px;border-top:1px solid var(--linie);margin-top:6px;padding-top:6px;font-weight:650" },
+        el("span",{ text:"= bleibt übrig" }),
+        el("span",{ class: k.freiJahr >= 0 ? "gruen" : "rot", text:euro(k.freiJahr/12) }))
+    ),
+    el("p",{ class:"t-klein", style:"margin-top:12px;line-height:1.5",
+      text:"Alle Beträge im Monat. Tippe eine Zeile oben an, um sie zu ändern." })
+  ));
+
+  /* --- Rücklage für Jahresrechnungen --- */
   if(k.ruecklageJahr > 0){
     const nichtMonatlich = aktiveAusgaben()
       .filter(a => ["zweimonatlich","vierteljaehrlich","halbjaehrlich","jaehrlich","einmalig"].includes(a.intervall))
       .sort((a,b) => jahresCent(b) - jahresCent(a));
     wurzel.appendChild(el("div",{ class:"karte" },
       el("div",{ class:"karte-kopf" }, el("h2",{ text:"Rücklage für Jahresrechnungen" })),
-      el("div",{ style:"font-size:30px;font-weight:650;letter-spacing:-.025em;font-variant-numeric:tabular-nums",
+      el("div",{ style:"font-size:26px;font-weight:650;letter-spacing:-.025em;font-variant-numeric:tabular-nums",
         text:euro(k.ruecklageJahr/12) }),
       el("p",{ class:"t-klein", style:"margin-top:6px;line-height:1.5",
-        html:`So viel solltest du <strong style="color:var(--text)">jeden Monat</strong> zusätzlich zur Seite legen, damit die ${nichtMonatlich.length} ${plural(nichtMonatlich.length,"Rechnung","Rechnungen")}, die nicht monatlich kommen, dich nicht überraschen. Im Jahr sind das ${euro(k.ruecklageJahr)}.` }),
-      klapp("Diese Rechnungen sind gemeint", () => {
+        html:`So viel steckt in den Zahlen oben für Rechnungen, die nicht jeden Monat kommen — ${nichtMonatlich.length} ${plural(nichtMonatlich.length,"Stück","Stück")}. Leg den Betrag beiseite, dann überrascht dich keine davon.` }),
+      klapp("Welche Rechnungen das sind", () => {
         const box = el("div",{});
         nichtMonatlich.forEach(a => box.appendChild(el("div",{ class:"datenzeile" },
           el("span",{ class:"dz-name" },
@@ -3826,29 +4002,24 @@ function reiterMonatsanfang(wurzel){
     ));
   }
 
-  /* Summen je Konto */
-  const proKonto = summenNachKonto();
-  if(proKonto.length > 0){
-    wurzel.appendChild(el("div",{ class:"karte" },
-      el("div",{ class:"karte-kopf" }, el("h2",{ text:"Nach Konto" })),
-      el("table",{ class:"mini-tabelle" },
-        el("thead",{}, el("tr",{},
-          el("th",{ text:"Konto" }), el("th",{ text:zeitraumWort() })
-        )),
-        el("tbody",{}, proKonto.map(e => el("tr",{},
-          el("td",{},
-            el("div",{ style:"display:flex;align-items:center;gap:9px" },
-              (() => { const s = icon(e.konto ? KONTOTYPEN[e.konto.typ].icon : "ic-ordner"); s.style.width="17px"; s.style.height="17px"; s.style.color="var(--text-2)"; s.style.flex="none"; return s; })(),
-              el("span",{ text: e.konto ? e.konto.name : "Ohne Konto" })
-            )
-          ),
-          el("td",{ text:euroZ(e.jahr) })
-        )))
-      )
-    ));
-  }
+  /* --- Kopierbare Fassung --- */
+  const zeilenText = [];
+  zeilenText.push(`Einkommen: ${euro(k.einnahmenJahr/12)} im Monat`);
+  if(kontoJahr > 0)  zeilenText.push(`${euro(kontoJahr/12)} auf dem Konto lassen`);
+  if(abhebenJahr > 0) zeilenText.push(`${euro(abhebenJahr/12)} abheben`);
+  if(k.sparplanJahr > 0) zeilenText.push(`${euro(k.sparplanJahr/12)} zur Seite legen`);
+  zeilenText.push(`${euro(k.freiJahr/12)} bleibt übrig`);
+  const text = zeilenText.join("\n");
+  wurzel.appendChild(el("div",{ class:"karte" },
+    el("div",{ class:"karte-kopf" },
+      el("h2",{ text:"Zum Mitnehmen" }),
+      el("button",{ class:"knopf leise klein", type:"button", text:"Kopieren",
+        onclick:(ev) => kopieren(text, ev.currentTarget) })
+    ),
+    el("div",{ class:"plan-block", text })
+  ));
 
-  /* Fälligkeitskalender */
+  /* --- Kalender --- */
   wurzel.appendChild(el("div",{ class:"karte" },
     el("div",{ class:"karte-kopf" }, el("h2",{ text:"Fälligkeiten" })),
     kalenderZeichnen()
@@ -3983,7 +4154,7 @@ function reiterAusgaben(wurzel){
 
 /* ----------------------------------------------------------------
    REITER 3 — SPAREN
-   Der neue Schwerpunkt: alles mit Tag "Sparen", je eigener Zinssatz.
+   Der neue Schwerpunkt: alles mit Tag "Sparen", je eigene Rendite.
    ---------------------------------------------------------------- */
 function reiterSparen(wurzel){
   const u = sparUebersicht();
@@ -3993,7 +4164,7 @@ function reiterSparen(wurzel){
     wurzel.appendChild(leerZustand(
       "ic-sparen",
       "Noch keine Sparposten",
-      "Markiere eine Position mit dem Tag „Sparen“, dann rechnet Lohnwerk hier aus, was daraus wird — mit deinem Zinssatz und der Inflation.",
+      "Markiere eine Position mit dem Tag „Sparen“, dann rechnet Lohnwerk hier aus, was daraus wird — mit deiner erwarteten Rendite und der Inflation.",
       "Sparposten anlegen",
       () => { UI.neuAlsSparen = true; ausgabeDialog(null); }
     ));
@@ -4062,9 +4233,9 @@ function reiterSparen(wurzel){
       el("span",{ class:"dz-name" },
         el("span",{ style:"display:inline-flex;align-items:center;gap:8px" },
           el("span",{ style:"width:8px;height:8px;border-radius:2px;background:var(--gruen);display:inline-block" }),
-          el("span",{ text:"Zinsen" })),
-        el("span",{ class:"neben", text:`Mischzins ${nfProzent.format(u.mischZins).replace(",0","")} % — gewichtet nach Sparbetrag` })),
-      el("span",{ class:"dz-wert gruen", text:euro(ende.zinsen) })
+          el("span",{ text:"Gewinn" })),
+        el("span",{ class:"neben", text:`Mischrendite ${nfProzent.format(u.mischRendite).replace(",0","")} % — gewichtet nach Sparbetrag` })),
+      el("span",{ class:"dz-wert gruen", text:euro(ende.gewinn) })
     ),
     inf > 0 ? el("div",{ class:"datenzeile" },
       el("span",{ class:"dz-name" },
@@ -4077,7 +4248,7 @@ function reiterSparen(wurzel){
   ));
 
   hochKarte.appendChild(el("p",{ class:"t-klein", style:"margin-top:14px;line-height:1.5",
-    text:"Eine Prognose, kein Kontostand. Sie nimmt an, dass du weiter so sparst und die Zinssätze halten. "
+    text:"Eine Prognose, kein Kontostand. Sie nimmt an, dass du weiter so sparst und die Rendite hält. "
        + (S.einstellungen.sparSteigerung > 0
           ? `Deine Sparrate steigt dabei jedes Jahr um ${nfProzent.format(S.einstellungen.sparSteigerung).replace(",0","")} %.`
           : "Die Annahmen änderst du in den Einstellungen.") }));
@@ -4102,10 +4273,10 @@ function reiterSparen(wurzel){
     }
 
     u.posten.forEach(x => {
-      const verlauf = sparVerlauf(x.bestand, x.jahr, x.zins, jahre,
+      const verlauf = sparVerlauf(x.bestand, x.jahr, x.rendite, jahre,
                                   S.einstellungen.inflation||0, S.einstellungen.sparSteigerung||0);
       const endwert = verlauf[verlauf.length-1];
-      const monate = monateBisZiel(x.bestand, x.monat, x.ziel, x.zins);
+      const monate = monateBisZiel(x.bestand, x.monat, x.ziel, x.rendite);
       const anteilZiel = x.ziel > 0 ? klemmen(x.bestand / x.ziel * 100, 0, 100) : null;
 
       const block = el("div",{ style:"border-top:1px solid var(--linie);padding:16px 0" });
@@ -4116,7 +4287,7 @@ function reiterSparen(wurzel){
           el("span",{ style:"display:block;font-size:16px;font-weight:600;letter-spacing:-.01em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap", text:x.pos.name }),
           el("span",{ style:"display:block;font-size:12.5px;color:var(--text-2);margin-top:2px",
             text: `${euro(x.monat)} /Monat`
-              + (x.zins > 0 ? ` · ${nfProzent.format(x.zins).replace(",0","")} % Zinsen` : " · ohne Zinsannahme") })
+              + (x.rendite > 0 ? ` · ${nfProzent.format(x.rendite).replace(",0","")} % Rendite` : " · ohne Gewinnannahme") })
         ),
         el("span",{ style:"text-align:right;flex:none" },
           el("span",{ style:"display:block;font-size:16px;font-weight:640;font-variant-numeric:tabular-nums", text:euro(x.bestand) }),
@@ -4137,7 +4308,7 @@ function reiterSparen(wurzel){
 
       block.appendChild(el("div",{ class:"t-klein", style:"margin-top:10px;line-height:1.5",
         html:`In ${jahre} ${plural(jahre,"Jahr","Jahren")}: <strong style="color:var(--text)">${euro(endwert.wert)}</strong>`
-          + (endwert.zinsen > 0 ? ` · davon ${euro(endwert.zinsen)} Zinsen` : "")
+          + (endwert.gewinn > 0 ? ` · davon ${euro(endwert.gewinn)} Gewinn` : "")
           + ((S.einstellungen.inflation||0) > 0 ? ` · Kaufkraft ${euro(endwert.kaufkraft)}` : "") }));
 
       karte.appendChild(block);
@@ -4194,7 +4365,7 @@ function sparzielRechner(){
   let zielCent = 1000000;      // 10.000 €
   let start = u.bestandGesamt;
   let rate = Math.round(u.gesamtSparenJahr / 12);
-  let zins = u.mischZins || 0;
+  let rendite = u.mischRendite || 0;
 
   const zielFeld = betragsFeld(zielCent, "Wunschbetrag");
   zielFeld.feld.removeAttribute("data-autofokus");
@@ -4202,8 +4373,8 @@ function sparzielRechner(){
   startFeld.feld.removeAttribute("data-autofokus");
   const rateFeld = betragsFeld(rate, "Pro Monat");
   rateFeld.feld.removeAttribute("data-autofokus");
-  const zinsFeld = el("input",{ class:"eingabe", type:"number", min:"0", max:"30", step:"0.1",
-    inputmode:"decimal", value: zins ? nfProzent.format(zins).replace(",0","") : "", placeholder:"0" });
+  const renditeFeld = el("input",{ class:"eingabe", type:"number", min:"0", max:"30", step:"0.1",
+    inputmode:"decimal", value: rendite ? nfProzent.format(rendite).replace(",0","") : "", placeholder:"0" });
 
   const ergebnis = el("div",{ style:"padding:16px;border-radius:12px;background:var(--karte-2);margin-top:6px" });
 
@@ -4211,7 +4382,7 @@ function sparzielRechner(){
     const z = zielFeld.wert() ?? 0;
     const s = startFeld.wert() ?? 0;
     const r = rateFeld.wert() ?? 0;
-    const zi = parseFloat(String(zinsFeld.value).replace(",",".")) || 0;
+    const zi = parseFloat(String(renditeFeld.value).replace(",",".")) || 0;
     const monate = monateBisZiel(s, r, z, zi);
     const inf = S.einstellungen.inflation || 0;
 
@@ -4250,7 +4421,7 @@ function sparzielRechner(){
   };
 
   [zielFeld.feld, startFeld.feld, rateFeld.feld].forEach(f => f.addEventListener("input", rechnen));
-  zinsFeld.addEventListener("input", rechnen);
+  renditeFeld.addEventListener("input", rechnen);
 
   karte.appendChild(zielFeld.box);
   karte.appendChild(el("div",{ class:"feld-reihe" },
@@ -4258,7 +4429,7 @@ function sparzielRechner(){
     el("div",{}, rateFeld.box)
   ));
   karte.appendChild(el("div",{ class:"feld" },
-    el("div",{ class:"feld-label", text:"Zinssatz in Prozent" }), zinsFeld));
+    el("div",{ class:"feld-label", text:"Rendite in Prozent pro Jahr" }), renditeFeld));
   karte.appendChild(ergebnis);
   rechnen();
   return karte;
@@ -4266,7 +4437,7 @@ function sparzielRechner(){
 
 /**
  * Das Spar-Verlaufsdiagramm: eine Fläche für das Eingezahlte, darüber
- * die Zinsen, dazu die Kaufkraft-Linie.
+ * den Gewinn, dazu die Kaufkraft-Linie.
  */
 function sparVerlaufZeichnen(reihe, mitKaufkraft){
   const B = 420, H = 210, padL = 4, padR = 4, padO = 12, padU = 26;
@@ -4302,7 +4473,7 @@ function sparVerlaufZeichnen(reihe, mitKaufkraft){
     return pfad;
   };
 
-  /* Gesamtwert (Eingezahltes + Zinsen) und darunter das Eingezahlte */
+  /* Gesamtwert (Eingezahltes + Gewinn) und darunter das Eingezahlte */
   svg.appendChild(flaeche(reihe.map(r => r.wert), "var(--gruen)", .30, 120));
   svg.appendChild(flaeche(reihe.map(r => r.eingezahlt), "var(--p1)", .55, 0));
 
@@ -4333,10 +4504,495 @@ function sparVerlaufZeichnen(reihe, mitKaufkraft){
   box.appendChild(svg);
   box.appendChild(el("div",{ class:"legende" },
     el("span",{ class:"legende-eintrag" }, el("span",{ class:"punkt", style:"background:var(--p1)" }), "Eingezahlt"),
-    el("span",{ class:"legende-eintrag" }, el("span",{ class:"punkt", style:"background:var(--gruen)" }), "mit Zinsen"),
+    el("span",{ class:"legende-eintrag" }, el("span",{ class:"punkt", style:"background:var(--gruen)" }), "mit Gewinn"),
     mitKaufkraft ? el("span",{ class:"legende-eintrag" },
       el("span",{ style:"width:14px;height:0;border-top:2px dashed var(--rot);display:inline-block" }), "Kaufkraft heute") : null
   ));
+  return box;
+}
+
+
+/* ================================================================
+   REITER 5 — WERKZEUGE
+   Zwei eigenständige Rechner, die nichts an den gespeicherten
+   Daten ändern. Beide arbeiten nur mit dem, was du eintippst.
+   ================================================================ */
+function reiterWerkzeuge(wurzel){
+  wurzel.appendChild(vermoegensRechner());
+  wurzel.appendChild(zakatRechner());
+}
+
+/* ----------------------------------------------------------------
+   VERMÖGENSRECHNER
+   Bewusst nicht "Zinsrechner": gerechnet wird mit Rendite, also
+   dem Gewinn aus Anlagen wie Gold, Aktien oder Beteiligungen.
+   ---------------------------------------------------------------- */
+function vermoegensRechner(){
+  const karte = el("div",{ class:"karte" });
+  karte.appendChild(el("div",{ class:"karte-kopf" },
+    el("h2",{ text:"Vermögensrechner" })
+  ));
+  karte.appendChild(el("p",{ class:"t-klein", style:"margin-top:-8px;margin-bottom:20px;line-height:1.55",
+    text:"Rechne aus, wie sich Kapital entwickelt, wenn es Gewinn abwirft — etwa aus Gold, Aktien oder einer Beteiligung. "
+       + "Der Rechner arbeitet mit Rendite, also dem Ertrag deiner Anlage, und ändert nichts an deinen gespeicherten Daten." }));
+
+  /* Zustand des Rechners */
+  const R = {
+    start: 500000,          // 5.000 €
+    rate: 20000,            // 200 €
+    rhythmus: "monat",      // monat | jahr
+    rendite: 5,
+    jahre: 15,
+    steigerung: 0
+  };
+
+  const startFeld = betragsFeld(R.start, "Startkapital");
+  startFeld.feld.removeAttribute("data-autofokus");
+  const rateFeld = betragsFeld(R.rate, "Einzahlung");
+  rateFeld.feld.removeAttribute("data-autofokus");
+
+  const renditeFeld = el("input",{ class:"eingabe", type:"number", min:"0", max:"40", step:"0.1",
+    inputmode:"decimal", value:R.rendite, placeholder:"z. B. 5" });
+  const jahreFeld = el("input",{ class:"eingabe", type:"number", min:"1", max:"60", step:"1",
+    inputmode:"numeric", value:R.jahre });
+  const steigerungFeld = el("input",{ class:"eingabe", type:"number", min:"0", max:"20", step:"0.5",
+    inputmode:"decimal", value:R.steigerung, placeholder:"0" });
+
+  /* Umschalter monatlich / jährlich */
+  const rhythmusWahl = el("div",{ class:"segment breit", role:"group", "aria-label":"Rhythmus der Einzahlung" },
+    el("button",{ type:"button", "aria-pressed":"true", text:"monatlich", onclick:(e) => {
+      R.rhythmus = "monat";
+      e.target.parentElement.children[0].setAttribute("aria-pressed","true");
+      e.target.parentElement.children[1].setAttribute("aria-pressed","false");
+      rechnen();
+    }}),
+    el("button",{ type:"button", "aria-pressed":"false", text:"jährlich", onclick:(e) => {
+      R.rhythmus = "jahr";
+      e.target.parentElement.children[0].setAttribute("aria-pressed","false");
+      e.target.parentElement.children[1].setAttribute("aria-pressed","true");
+      rechnen();
+    }})
+  );
+
+  karte.appendChild(startFeld.box);
+  karte.appendChild(el("div",{ class:"feld" },
+    el("div",{ class:"feld-label", text:"Rhythmus der Einzahlung" }), rhythmusWahl));
+  karte.appendChild(rateFeld.box);
+  karte.appendChild(el("div",{ class:"feld-reihe" },
+    el("div",{},
+      el("div",{ class:"feld-label", text:"Rendite pro Jahr in %" }), renditeFeld),
+    el("div",{},
+      el("div",{ class:"feld-label", text:"Laufzeit in Jahren" }), jahreFeld)
+  ));
+  karte.appendChild(el("div",{ class:"feld" },
+    el("div",{ class:"feld-label", text:"Einzahlung steigt jährlich um … %" }), steigerungFeld,
+    el("div",{ class:"feld-hinweis", text:"Falls du planst, künftig mehr einzuzahlen. 0 lässt den Betrag gleich." })));
+
+  const ergebnis = el("div",{});
+  karte.appendChild(ergebnis);
+
+  function rechnen(){
+    R.start = startFeld.wert() ?? 0;
+    R.rate = rateFeld.wert() ?? 0;
+    R.rendite = klemmen(parseFloat(String(renditeFeld.value).replace(",",".")) || 0, 0, 40);
+    R.jahre = klemmen(parseInt(jahreFeld.value,10) || 1, 1, 60);
+    R.steigerung = klemmen(parseFloat(String(steigerungFeld.value).replace(",",".")) || 0, 0, 20);
+
+    const proJahr = R.rhythmus === "monat" ? R.rate * 12 : R.rate;
+    const inf = S.einstellungen.inflation || 0;
+    const reihe = sparVerlauf(R.start, proJahr, R.rendite, R.jahre, inf, R.steigerung);
+    const ende = reihe[reihe.length - 1];
+
+    ergebnis.replaceChildren(
+      el("div",{ style:"padding:18px;border-radius:14px;background:var(--karte-2);margin-top:6px" },
+        el("div",{ class:"t-kapitaelchen", text:`Nach ${R.jahre} ${plural(R.jahre,"Jahr","Jahren")}` }),
+        el("div",{ style:"font-size:34px;font-weight:650;letter-spacing:-.03em;font-variant-numeric:tabular-nums;color:var(--gruen);margin-top:2px",
+          text:euro(ende.wert) }),
+        el("div",{ class:"datenzeile", style:"border-top:1px solid var(--linie);margin-top:14px" },
+          el("span",{ class:"dz-name" },
+            el("span",{ style:"display:inline-flex;align-items:center;gap:8px" },
+              el("span",{ style:"width:8px;height:8px;border-radius:2px;background:var(--p1);display:inline-block" }),
+              el("span",{ text:"Selbst eingezahlt" })),
+            el("span",{ class:"neben", text:`Start plus ${R.rhythmus === "monat" ? "monatliche" : "jährliche"} Einzahlungen` })),
+          el("span",{ class:"dz-wert", text:euro(ende.eingezahlt) })
+        ),
+        el("div",{ class:"datenzeile" },
+          el("span",{ class:"dz-name" },
+            el("span",{ style:"display:inline-flex;align-items:center;gap:8px" },
+              el("span",{ style:"width:8px;height:8px;border-radius:2px;background:var(--gruen);display:inline-block" }),
+              el("span",{ text:"Gewinn" })),
+            el("span",{ class:"neben", text:`bei ${nfProzent.format(R.rendite).replace(",0","")} % Rendite im Jahr` })),
+          el("span",{ class:"dz-wert gruen", text:euro(ende.gewinn) })
+        ),
+        inf > 0 ? el("div",{ class:"datenzeile" },
+          el("span",{ class:"dz-name" },
+            el("span",{ style:"display:inline-flex;align-items:center;gap:8px" },
+              el("span",{ style:"width:8px;height:8px;border-radius:2px;background:var(--rot);display:inline-block" }),
+              el("span",{ text:"Kaufkraft heute" })),
+            el("span",{ class:"neben", text:`nach ${nfProzent.format(inf).replace(",0","")} % Geldentwertung im Jahr` })),
+          el("span",{ class:"dz-wert", text:euro(ende.kaufkraft) })
+        ) : null
+      ),
+      sparVerlaufZeichnen(reihe, inf > 0),
+      el("p",{ class:"t-klein", style:"margin-top:14px;line-height:1.55",
+        text:"Eine Rechnung mit gleichbleibender Rendite. Echte Anlagen schwanken — in manchen Jahren steht ein Minus. "
+           + "Sieh das Ergebnis als Größenordnung, nicht als Versprechen." })
+    );
+  }
+
+  [startFeld.feld, rateFeld.feld].forEach(f => f.addEventListener("input", rechnen));
+  [renditeFeld, jahreFeld, steigerungFeld].forEach(f => f.addEventListener("input", rechnen));
+  rechnen();
+  return karte;
+}
+
+/* ----------------------------------------------------------------
+   ZAKAT-RECHNER
+
+   Rechnet die Zakat auf Geldvermögen nach hanafitischer und
+   schafiitischer Lehre. Der Rechner nimmt bewusst keine Kurse aus
+   dem Netz — die Preise für Gold und Silber trägst du selbst ein,
+   damit die App offline und ohne jede Datenübertragung bleibt.
+   ---------------------------------------------------------------- */
+
+/* Die klassischen Maße: 20 Golddinar und 200 Silberdirham. */
+const NISAB_GOLD_GRAMM = 85;
+const NISAB_SILBER_GRAMM = 595;
+const ZAKAT_SATZ = 0.025;          // 2,5 % = ein Vierzigstel
+
+function zakatRechner(){
+  const karte = el("div",{ class:"karte" });
+  karte.appendChild(el("div",{ class:"karte-kopf" },
+    el("h2",{ text:"Zakat-Rechner" })
+  ));
+  karte.appendChild(el("p",{ class:"t-klein", style:"margin-top:-8px;margin-bottom:20px;line-height:1.55",
+    text:"Rechnet aus, ob du zakatpflichtig bist und wie viel fällig wird. "
+       + "Trag die Werte ein, die du am Stichtag besitzt." }));
+
+  const Z = {
+    schule: "hanafi",        // hanafi | schafii
+    grundlage: "silber",     // silber | gold
+    goldPreis: 0,            // Cent je Gramm
+    silberPreis: 0,          // Cent je Gramm
+    bargeld: 0, guthaben: 0, goldGramm: 0, silberGramm: 0,
+    handelsware: 0, anlagen: 0, forderungen: 0, schulden: 0
+  };
+
+  /* --- Rechtsschule --- */
+  const schuleWahl = el("div",{ class:"segment breit", role:"group", "aria-label":"Rechtsschule" },
+    el("button",{ type:"button", "aria-pressed":"true", text:"Hanafi", onclick:(e) => {
+      Z.schule = "hanafi"; Z.grundlage = "silber";
+      e.target.parentElement.children[0].setAttribute("aria-pressed","true");
+      e.target.parentElement.children[1].setAttribute("aria-pressed","false");
+      grundlageAktualisieren(); rechnen();
+    }}),
+    el("button",{ type:"button", "aria-pressed":"false", text:"Schafi'i", onclick:(e) => {
+      Z.schule = "schafii"; Z.grundlage = "gold";
+      e.target.parentElement.children[0].setAttribute("aria-pressed","false");
+      e.target.parentElement.children[1].setAttribute("aria-pressed","true");
+      grundlageAktualisieren(); rechnen();
+    }})
+  );
+  karte.appendChild(el("div",{ class:"feld" },
+    el("div",{ class:"feld-label", text:"Rechtsschule" }), schuleWahl,
+    el("div",{ class:"feld-hinweis", id:"zk-schule-hinweis", text:"" })
+  ));
+
+  /* --- Grundlage für den Nisab --- */
+  const grundlageWahl = el("div",{ class:"segment breit", role:"group", "aria-label":"Grundlage des Nisab" },
+    el("button",{ type:"button", "aria-pressed":"true", text:"Silber (595 g)", onclick:(e) => {
+      Z.grundlage = "silber"; grundlageAktualisieren(); rechnen();
+    }}),
+    el("button",{ type:"button", "aria-pressed":"false", text:"Gold (85 g)", onclick:(e) => {
+      Z.grundlage = "gold"; grundlageAktualisieren(); rechnen();
+    }})
+  );
+  karte.appendChild(el("div",{ class:"feld" },
+    el("div",{ class:"feld-label", text:"Grundlage für die Schwelle" }), grundlageWahl,
+    el("div",{ class:"feld-hinweis", id:"zk-grundlage-hinweis", text:"" })
+  ));
+
+  function grundlageAktualisieren(){
+    const k = grundlageWahl.children;
+    k[0].setAttribute("aria-pressed", Z.grundlage === "silber" ? "true":"false");
+    k[1].setAttribute("aria-pressed", Z.grundlage === "gold" ? "true":"false");
+    const sh = $("#zk-schule-hinweis", karte);
+    const gh = $("#zk-grundlage-hinweis", karte);
+    if(sh) sh.textContent = Z.schule === "hanafi"
+      ? "Hanafi: Gold, Silber, Bargeld und Handelsware werden zusammengezählt. Fällige Schulden darfst du abziehen."
+      : "Schafi'i: Gold und Silber werden getrennt betrachtet, jedes mit eigener Schwelle. Schulden werden klassisch nicht abgezogen.";
+    if(gh) gh.textContent = Z.grundlage === "silber"
+      ? "Die Silberschwelle liegt niedriger — dadurch werden mehr Menschen zakatpflichtig. In der hanafitischen Praxis ist das der übliche Maßstab."
+      : "Die Goldschwelle liegt höher. Sie ist in der schafiitischen Praxis für Bargeld der übliche Maßstab.";
+  }
+
+  /* --- Preise --- */
+  const goldFeld = betragsFeld(0, "Goldpreis je Gramm");
+  goldFeld.feld.removeAttribute("data-autofokus");
+  goldFeld.feld.placeholder = "Tagespreis eintragen";
+  const silberFeld = betragsFeld(0, "Silberpreis je Gramm");
+  silberFeld.feld.removeAttribute("data-autofokus");
+  silberFeld.feld.placeholder = "Tagespreis eintragen";
+
+  karte.appendChild(el("div",{ style:"padding:16px 16px 4px 18px;border-radius:14px;background:var(--karte-2);box-shadow:inset 3px 0 0 var(--akzent);margin-bottom:20px" },
+    el("div",{ class:"t-kapitaelchen", style:"margin-bottom:12px", text:"Tagespreise" }),
+    goldFeld.box,
+    silberFeld.box,
+    el("p",{ class:"t-klein", style:"line-height:1.55;padding-bottom:12px",
+      text:"Lohnwerk holt keine Kurse aus dem Netz — die App soll offline und ohne Datenübertragung bleiben. "
+         + "Schau den Tagespreis kurz nach und trag ihn hier ein. Für die Schwelle zählt nur der Preis der gewählten Grundlage." })
+  ));
+
+  /* --- Vermögenswerte --- */
+  const felder = {};
+  const wertFeld = (schluessel, beschriftung, hinweis) => {
+    const f = betragsFeld(0, beschriftung);
+    f.feld.removeAttribute("data-autofokus");
+    if(hinweis) f.box.appendChild(el("div",{ class:"feld-hinweis", text:hinweis }));
+    felder[schluessel] = f;
+    return f.box;
+  };
+  const grammFeld = (schluessel, beschriftung, hinweis) => {
+    const inp = el("input",{ class:"eingabe", type:"number", min:"0", step:"0.1",
+      inputmode:"decimal", placeholder:"0" });
+    inp.addEventListener("input", rechnen);
+    felder[schluessel] = { feld:inp, wert: () => parseFloat(String(inp.value).replace(",",".")) || 0 };
+    return el("div",{ class:"feld" },
+      el("div",{ class:"feld-label", text:beschriftung }), inp,
+      hinweis ? el("div",{ class:"feld-hinweis", text:hinweis }) : null);
+  };
+
+  karte.appendChild(el("div",{ class:"t-kapitaelchen", style:"margin:4px 0 14px", text:"Dein Vermögen am Stichtag" }));
+  karte.appendChild(wertFeld("bargeld", "Bargeld"));
+  karte.appendChild(wertFeld("guthaben", "Guthaben auf Konten"));
+  karte.appendChild(grammFeld("goldGramm", "Gold in Gramm", "Barren, Münzen und Schmuck."));
+  karte.appendChild(grammFeld("silberGramm", "Silber in Gramm"));
+  karte.appendChild(wertFeld("handelsware", "Handelsware",
+    "Waren, die du zum Weiterverkauf hältst — zum heutigen Verkaufswert."));
+  karte.appendChild(wertFeld("anlagen", "Anlagen und Beteiligungen",
+    "Aktien, Fonds, Anteile. Bei kurzfristiger Handelsabsicht der volle Wert."));
+  karte.appendChild(wertFeld("forderungen", "Geliehenes Geld",
+    "Nur, womit du sicher rechnest, es zurückzubekommen."));
+  karte.appendChild(wertFeld("schulden", "Fällige Schulden",
+    "Wird bei der hanafitischen Rechnung abgezogen."));
+
+  const ergebnis = el("div",{});
+  karte.appendChild(ergebnis);
+
+  function rechnen(){
+    Z.goldPreis = goldFeld.wert() ?? 0;
+    Z.silberPreis = silberFeld.wert() ?? 0;
+    ["bargeld","guthaben","handelsware","anlagen","forderungen","schulden"].forEach(s => {
+      Z[s] = felder[s].wert() ?? 0;
+    });
+    Z.goldGramm = felder.goldGramm.wert();
+    Z.silberGramm = felder.silberGramm.wert();
+
+    const goldWert = Math.round(Z.goldGramm * Z.goldPreis);
+    const silberWert = Math.round(Z.silberGramm * Z.silberPreis);
+    const bar = Z.bargeld + Z.guthaben + Z.handelsware + Z.anlagen + Z.forderungen;
+
+    /* Die Schwelle in Euro — abhängig von der gewählten Grundlage. */
+    const nisab = Z.grundlage === "silber"
+      ? Math.round(NISAB_SILBER_GRAMM * Z.silberPreis)
+      : Math.round(NISAB_GOLD_GRAMM * Z.goldPreis);
+    const preisFehlt = Z.grundlage === "silber" ? Z.silberPreis <= 0 : Z.goldPreis <= 0;
+
+    /* Hanafi: alles zusammen, Schulden ab. Schafi'i: ohne Schuldenabzug. */
+    const brutto = bar + goldWert + silberWert;
+    const netto = Z.schule === "hanafi" ? Math.max(0, brutto - Z.schulden) : brutto;
+    const pflichtig = !preisFehlt && netto >= nisab && nisab > 0;
+    const betrag = pflichtig ? Math.round(netto * ZAKAT_SATZ) : 0;
+
+    const kinder = [];
+
+    if(preisFehlt){
+      kinder.push(el("div",{ class:"banner warn", style:"margin-top:6px" },
+        icon("ic-warn"),
+        el("div",{ class:"inhalt-b",
+          text: Z.grundlage === "silber"
+            ? "Trag den Silberpreis je Gramm ein — ohne ihn lässt sich die Schwelle nicht bestimmen."
+            : "Trag den Goldpreis je Gramm ein — ohne ihn lässt sich die Schwelle nicht bestimmen." })
+      ));
+    } else {
+      kinder.push(el("div",{ style:`padding:18px;border-radius:14px;margin-top:6px;background:${pflichtig ? "var(--karte-2)" : "var(--karte-2)"}` },
+        el("div",{ class:"t-kapitaelchen", text: pflichtig ? "Zu entrichten" : "Ergebnis" }),
+        el("div",{ style:`font-size:34px;font-weight:650;letter-spacing:-.03em;font-variant-numeric:tabular-nums;margin-top:2px;color:${pflichtig ? "var(--gruen)" : "var(--text-2)"}`,
+          text: pflichtig ? euro(betrag) : "keine Zakat fällig" }),
+        el("p",{ class:"t-klein", style:"margin-top:8px;line-height:1.55",
+          text: pflichtig
+            ? `2,5 % von ${euro(netto)}. Voraussetzung ist, dass dein Vermögen ein islamisches Mondjahr lang über der Schwelle lag.`
+            : `Dein Vermögen von ${euro(netto)} liegt unter der Schwelle von ${euro(nisab)}. Dann ist keine Zakat fällig.` })
+      ));
+
+      /* Aufschlüsselung */
+      const zeile = (name, neben, wert, farbe) => el("div",{ class:"datenzeile" },
+        el("span",{ class:"dz-name" },
+          el("span",{ text:name }),
+          neben ? el("span",{ class:"neben", text:neben }) : null),
+        el("span",{ class:"dz-wert", style: farbe ? `color:${farbe}` : null, text:wert })
+      );
+      const box = el("div",{ style:"margin-top:16px" });
+      if(bar > 0) box.appendChild(zeile("Geld und Anlagen", "Bargeld, Konten, Ware, Beteiligungen, Forderungen", euro(bar)));
+      if(goldWert > 0) box.appendChild(zeile("Gold", `${nfZahl.format(Z.goldGramm).replace(",00","")} g`, euro(goldWert)));
+      if(silberWert > 0) box.appendChild(zeile("Silber", `${nfZahl.format(Z.silberGramm).replace(",00","")} g`, euro(silberWert)));
+      if(Z.schulden > 0){
+        box.appendChild(Z.schule === "hanafi"
+          ? zeile("Fällige Schulden", "werden abgezogen", "− "+euro(Z.schulden), "var(--rot)")
+          : zeile("Fällige Schulden", "nach schafiitischer Lehre nicht abgezogen", euro(Z.schulden), "var(--text-3)"));
+      }
+      box.appendChild(zeile("Zakatpflichtiges Vermögen", null, euro(netto)));
+      box.appendChild(zeile("Schwelle (Nisab)",
+        Z.grundlage === "silber" ? `${NISAB_SILBER_GRAMM} g Silber` : `${NISAB_GOLD_GRAMM} g Gold`,
+        euro(nisab)));
+      kinder.push(box);
+
+      /* Bei Schafi'i getrennte Betrachtung sichtbar machen */
+      if(Z.schule === "schafii" && goldWert > 0 && silberWert > 0){
+        const nisabGold = Math.round(NISAB_GOLD_GRAMM * Z.goldPreis);
+        const nisabSilber = Math.round(NISAB_SILBER_GRAMM * Z.silberPreis);
+        kinder.push(el("div",{ class:"banner", style:"margin-top:16px" },
+          icon("ic-info"),
+          el("div",{ class:"inhalt-b", style:"line-height:1.55",
+            html: `In der schafiitischen Lehre werden Gold und Silber <strong>getrennt</strong> bewertet, jedes mit eigener Schwelle: `
+              + `Gold ${euro(goldWert)} gegen ${euro(nisabGold)}, Silber ${euro(silberWert)} gegen ${euro(nisabSilber)}. `
+              + `Die Rechnung oben fasst zusammen — prüfe die beiden Posten deshalb auch einzeln.` })
+        ));
+      }
+    }
+
+    ergebnis.replaceChildren(...kinder, zakatErklaerung());
+  }
+
+  [goldFeld.feld, silberFeld.feld].forEach(f => f.addEventListener("input", rechnen));
+  ["bargeld","guthaben","handelsware","anlagen","forderungen","schulden"].forEach(s => {
+    felder[s].feld.addEventListener("input", rechnen);
+  });
+
+  grundlageAktualisieren();
+  rechnen();
+  return karte;
+}
+
+/** Die ausklappbare Erklärung zur Zakat. */
+function zakatErklaerung(){
+  const box = el("div",{ style:"margin-top:20px;border-top:1px solid var(--linie)" });
+
+  const absatz = (text) => el("p",{ class:"t-body",
+    style:"font-size:15px;line-height:1.65;color:var(--text-2);margin-bottom:12px", text });
+  const liste = (punkte) => el("ul",{ style:"margin:0 0 12px;padding:0;list-style:none;display:grid;gap:7px" },
+    punkte.map(p => el("li",{ style:"font-size:15px;line-height:1.55;color:var(--text-2);padding-left:18px;position:relative" },
+      el("span",{ style:"position:absolute;left:0;top:0;color:var(--akzent)", text:"·" }),
+      el("span",{ html:p })
+    )));
+  const zwischen = (text) => el("div",{ class:"t-kapitaelchen", style:"margin:16px 0 10px", text });
+
+  box.appendChild(klapp("Was ist Zakat und ab wann wird sie fällig?", () => {
+    const inhalt = el("div",{});
+    inhalt.appendChild(absatz(
+      "Zakat ist die jährliche Pflichtabgabe auf Vermögen, das über einer Mindestgrenze liegt. "
+      + "Sie ist keine Spende nach Belieben, sondern ein festgelegter Anteil deines Besitzes."));
+
+    inhalt.appendChild(zwischen("Die drei Bedingungen"));
+    inhalt.appendChild(liste([
+      "<strong>Die Schwelle (Nisab):</strong> Dein Vermögen muss mindestens dem Wert von 85 Gramm Gold oder 595 Gramm Silber entsprechen. Welcher Maßstab gilt, hängt von der Rechtsschule und der Art des Vermögens ab.",
+      "<strong>Das Mondjahr (Hawl):</strong> Das Vermögen muss ein volles islamisches Jahr (etwa 354 Tage) in deinem Besitz gewesen sein und in dieser Zeit über der Schwelle geblieben sein. Schwankungen zwischendurch schaden nach verbreiteter Ansicht nicht, solange Anfang und Ende darüber liegen.",
+      "<strong>Der Satz:</strong> Fällig sind <strong>2,5 %</strong> — also ein Vierzigstel des zakatpflichtigen Vermögens."
+    ]));
+
+    inhalt.appendChild(zwischen("Was zum Vermögen zählt"));
+    inhalt.appendChild(liste([
+      "Bargeld und Guthaben auf Konten",
+      "Gold und Silber — als Barren, Münzen oder Schmuck",
+      "Handelsware, also alles, was du zum Weiterverkauf hältst, zum aktuellen Verkaufswert",
+      "Aktien, Fondsanteile und Beteiligungen. Bei Handelsabsicht der volle Wert; bei langfristiger Anlage rechnen viele Gelehrte nur den Anteil an zakatpflichtigen Werten des Unternehmens.",
+      "Geliehenes Geld, mit dessen Rückzahlung du fest rechnest",
+      "Mieteinnahmen und Ersparnisse, die am Stichtag noch vorhanden sind"
+    ]));
+
+    inhalt.appendChild(zwischen("Was nicht dazuzählt"));
+    inhalt.appendChild(liste([
+      "Das Haus oder die Wohnung, in der du selbst lebst",
+      "Das Auto, das du selbst nutzt",
+      "Möbel, Kleidung und Dinge des täglichen Gebrauchs",
+      "Werkzeuge und Maschinen deines Betriebs, die nicht zum Verkauf stehen",
+      "Eine vermietete Immobilie selbst — zakatpflichtig sind nur die angesparten Mieteinnahmen"
+    ]));
+    return inhalt;
+  }));
+
+  box.appendChild(klapp("Unterschiede zwischen Hanafi und Schafi'i", () => {
+    const inhalt = el("div",{});
+    inhalt.appendChild(absatz(
+      "Beide Schulen sind sich über den Satz von 2,5 % einig. Sie unterscheiden sich darin, "
+      + "wie die Schwelle bestimmt und was zusammengerechnet wird."));
+
+    const tab = el("table",{ class:"mini-tabelle", style:"margin-bottom:14px" },
+      el("thead",{}, el("tr",{},
+        el("th",{ text:"Frage" }), el("th",{ style:"text-align:left", text:"Hanafi" }), el("th",{ style:"text-align:left", text:"Schafi'i" })
+      )),
+      el("tbody",{},
+        [["Maßstab der Schwelle","meist Silber (niedriger)","Gold für Bargeld"],
+         ["Gold und Silber","werden zusammengezählt","getrennt, je eigene Schwelle"],
+         ["Bargeld dazurechnen","ja, zu Gold und Silber","als eigener Posten, meist nach Goldwert"],
+         ["Fällige Schulden","werden abgezogen","klassisch nicht abgezogen"],
+         ["Getragener Schmuck","zakatpflichtig","im üblichen Rahmen befreit"]
+        ].map(([a,b,c]) => el("tr",{},
+          el("td",{ style:"vertical-align:top", text:a }),
+          el("td",{ style:"text-align:left;vertical-align:top;font-variant-numeric:normal", text:b }),
+          el("td",{ style:"text-align:left;vertical-align:top;font-variant-numeric:normal", text:c })
+        ))
+      )
+    );
+    inhalt.appendChild(el("div",{ style:"overflow-x:auto" }, tab));
+    inhalt.appendChild(absatz(
+      "Der niedrigere Silbermaßstab führt dazu, dass mehr Menschen zakatpflichtig werden. "
+      + "Viele Gelehrte halten ihn deshalb für den vorsichtigeren Weg, weil er den Empfängern zugutekommt."));
+    return inhalt;
+  }));
+
+  box.appendChild(klapp("Wer die Zakat bekommen darf", () => {
+    const inhalt = el("div",{});
+    inhalt.appendChild(absatz(
+      "Der Koran nennt in Sure 9, Vers 60 acht Gruppen von Empfängern. Zakat darf nur an sie gehen — "
+      + "nicht an beliebige gute Zwecke."));
+    inhalt.appendChild(liste([
+      "Arme",
+      "Bedürftige",
+      "Diejenigen, die mit der Verwaltung der Zakat betraut sind",
+      "Menschen, deren Herzen gewonnen werden sollen",
+      "Zur Befreiung aus Unfreiheit",
+      "Überschuldete",
+      "Für den Weg Gottes",
+      "Reisende in Not"
+    ]));
+    inhalt.appendChild(absatz(
+      "Nicht empfangen dürfen sie in der Regel deine eigenen Eltern, Großeltern, Kinder und Enkel — "
+      + "für sie bist du ohnehin unterhaltspflichtig. Für Ehepartner und weitere Verwandte gelten je nach Schule eigene Regeln."));
+    return inhalt;
+  }));
+
+  box.appendChild(klapp("Wichtiger Hinweis zu diesem Rechner", () => {
+    const inhalt = el("div",{});
+    inhalt.appendChild(el("div",{ class:"banner warn", style:"margin-bottom:14px" },
+      icon("ic-warn"),
+      el("div",{ class:"inhalt-b", style:"line-height:1.55",
+        text:"Dieser Rechner ist ein Hilfsmittel, keine Rechtsauskunft. Er bildet die verbreiteten Grundregeln ab und kann Einzelfälle nicht abdecken." })
+    ));
+    inhalt.appendChild(absatz(
+      "Innerhalb jeder Rechtsschule gibt es zu vielen Fragen unterschiedliche Meinungen — etwa zur Bewertung von "
+      + "Aktien und Fonds, zu langfristigen Rücklagen für ein Haus, zu Rentenansprüchen, zu Krypto-Vermögen oder dazu, "
+      + "welche Schulden genau abgezogen werden dürfen."));
+    inhalt.appendChild(absatz(
+      "Recherchiere bei Unklarheiten selbst und frag jemanden, der sich damit auskennt — "
+      + "einen Gelehrten deiner Rechtsschule oder eine Stelle, der du vertraust. "
+      + "Verlass dich bei einer Pflichtabgabe nicht allein auf eine App."));
+    inhalt.appendChild(absatz(
+      "Auch die Preise für Gold und Silber änderst du selbst: Lohnwerk holt bewusst nichts aus dem Netz. "
+      + "Nimm den Tagespreis vom Stichtag deiner Rechnung."));
+    return inhalt;
+  }));
+
   return box;
 }
 
@@ -4423,7 +5079,7 @@ function reiterAnalyse(wurzel){
         /* Was daraus würde, wenn du es stattdessen sparst */
         const jahre = S.einstellungen.hochrechnungJahre || 10;
         const u = sparUebersicht();
-        const verlauf = sparVerlauf(0, summeK, u.mischZins || 0, jahre,
+        const verlauf = sparVerlauf(0, summeK, u.mischRendite || 0, jahre,
                                     S.einstellungen.inflation||0, 0);
         const ende = verlauf[verlauf.length-1];
         return el("p",{ class:"t-klein", style:"margin-top:8px;line-height:1.55",
@@ -4771,7 +5427,7 @@ function ausgabeDialog(vorhanden){
         zahlungsweg:(p.zahlungswege[1]||p.zahlungswege[0]).id, kontoId:null,
         faelligTag:1, startMonat:heute().getMonth()+1,
         tags: UI.neuAlsSparen ? [SPAR_TAG_ID] : [], prioritaet:"variabel", aktiv:true, notiz:"",
-        zinsProzent:0, bestandCent:0, zielCent:0 };
+        renditeProzent:0, bestandCent:0, zielCent:0 };
   UI.neuAlsSparen = false;
 
   const koerper = el("div",{});
@@ -4886,11 +5542,11 @@ function ausgabeDialog(vorhanden){
       text:"Mit dem Tag „Sparen“ zählt die Position nicht als Ausgabe, sondern als Geld, das dir bleibt." })));
 
   /* Sparfelder — nur sichtbar, wenn das Spar-Tag gesetzt ist. */
-  const zinsFeld = el("input",{ class:"eingabe", type:"number", min:"0", max:"30", step:"0.05",
-    inputmode:"decimal", value: daten.zinsProzent || "", placeholder:"z. B. 2,5",
+  const renditeFeld = el("input",{ class:"eingabe", type:"number", min:"0", max:"30", step:"0.05",
+    inputmode:"decimal", value: daten.renditeProzent || "", placeholder:"z. B. 2,5",
     onchange:(e) => {
       const v = parseFloat(String(e.target.value).replace(",","."));
-      daten.zinsProzent = Number.isFinite(v) ? klemmen(v,0,30) : 0;
+      daten.renditeProzent = Number.isFinite(v) ? klemmen(v,0,30) : 0;
       vorschauAktualisieren();
     }});
   const bestand = betragsFeld(daten.bestandCent, "Schon zurückgelegt");
@@ -4906,7 +5562,7 @@ function ausgabeDialog(vorhanden){
       (() => { const s = icon("ic-sparen"); s.style.width="18px"; s.style.height="18px"; s.style.color="var(--gruen)"; return s; })(),
       el("span",{ class:"t-kapitaelchen", style:"color:var(--gruen)", text:"Sparposten" })
     ),
-    el("div",{ class:"feld" }, el("div",{ class:"feld-label", text:"Zinssatz pro Jahr in Prozent" }), zinsFeld,
+    el("div",{ class:"feld" }, el("div",{ class:"feld-label", text:"Erwartete Rendite pro Jahr in Prozent" }), renditeFeld,
       el("div",{ class:"feld-hinweis", text:"Für die Hochrechnung. Tagesgeld, Sparbuch, ETF-Erwartung — was du für realistisch hältst." })),
     bestand.box,
     ziel.box,
@@ -4946,15 +5602,15 @@ function ausgabeDialog(vorhanden){
       const start = bestand.wert() ?? 0;
       const zielC = ziel.wert() ?? 0;
       const jahre = S.einstellungen.hochrechnungJahre || 10;
-      const reihe = sparVerlauf(start, jahr, daten.zinsProzent||0, jahre,
+      const reihe = sparVerlauf(start, jahr, daten.renditeProzent||0, jahre,
                                 S.einstellungen.inflation||0, S.einstellungen.sparSteigerung||0);
       const ende = reihe[reihe.length-1];
       kinder.push(el("div",{ class:"t-klein", style:"margin-top:8px;line-height:1.55",
         html:`In ${jahre} ${plural(jahre,"Jahr","Jahren")}: <strong style="color:var(--text)">${euro(ende.wert)}</strong>`
-           + (ende.zinsen > 0 ? ` — davon ${euro(ende.zinsen)} Zinsen` : "")
+           + (ende.gewinn > 0 ? ` — davon ${euro(ende.gewinn)} Gewinn` : "")
            + `<br>Kaufkraft in heutigem Geld: ${euro(ende.kaufkraft)}` }));
       if(zielC > 0){
-        const m = monateBisZiel(start, jahr/12, zielC, daten.zinsProzent||0);
+        const m = monateBisZiel(start, jahr/12, zielC, daten.renditeProzent||0);
         kinder.push(el("div",{ class:"t-klein", style:"margin-top:6px",
           text: m === null ? "Das Ziel wird mit diesem Betrag nicht erreicht."
               : m === 0 ? "Das Ziel ist schon erreicht."
@@ -4982,7 +5638,7 @@ function ausgabeDialog(vorhanden){
       daten.bestandCent = Math.max(0, bestand.wert() ?? 0);
       daten.zielCent = Math.max(0, ziel.wert() ?? 0);
     } else {
-      daten.zinsProzent = 0; daten.bestandCent = 0; daten.zielCent = 0;
+      daten.renditeProzent = 0; daten.bestandCent = 0; daten.zielCent = 0;
     }
     const pr = P();
     const i = pr.ausgaben.findIndex(x => x.id === daten.id);
@@ -5469,7 +6125,7 @@ function zeichneEinstellungen(){
   wurzel.appendChild(el("div",{ class:"karte" },
     el("div",{ class:"karte-kopf" }, el("h2",{ text:"Annahmen für die Hochrechnung" })),
     el("p",{ class:"t-klein", style:"margin-top:-8px;margin-bottom:18px;line-height:1.5",
-      text:"Diese Werte gelten für alle Prognosen in der Auswertung. Den Zinssatz trägst du bei jedem Sparposten einzeln ein — so kann Tagesgeld anders rechnen als ein Depot." }),
+      text:"Diese Werte gelten für alle Prognosen in der Auswertung. Die erwartete Rendite trägst du bei jedem Sparposten einzeln ein — Gold rechnet dann anders als ein Aktienfonds." }),
     el("div",{ class:"feld" },
       el("div",{ class:"feld-label", text:"Inflation in Prozent pro Jahr" }),
       zahlFeld(S.einstellungen.inflation, 0, 20, 0.1, "z. B. 2",
@@ -5615,7 +6271,7 @@ function csvExportieren(){
   const zeilen = [];
   zeilen.push(["Typ","Bezeichnung","Betrag","Intervall","Betrag pro Monat","Betrag pro Jahr",
                "Zahlungsweg","Konto","Fälliger Tag","Startmonat","Tags","Priorität",
-               "Zinssatz %","Bestand","Sparziel","Aktiv","Notiz"].map(feld).join(trenn));
+               "Rendite % p.a.","Bestand","Sparziel","Aktiv","Notiz"].map(feld).join(trenn));
 
   p.einnahmen.forEach(e => {
     const j = e.aktiv === false ? 0 : jahresCent(e);
@@ -5637,7 +6293,7 @@ function csvExportieren(){
       zahl(j/12), zahl(j), wegFuer(a).name,
       konto ? konto.name : "", a.faelligTag, MONATE_LANG[(a.startMonat||1)-1],
       tagNamen, PRIORITAETEN[a.prioritaet].name,
-      sparen ? nfZahl.format(a.zinsProzent||0) : "",
+      sparen ? nfZahl.format(a.renditeProzent||0) : "",
       sparen ? zahl(a.bestandCent||0) : "",
       sparen && a.zielCent ? zahl(a.zielCent) : "",
       a.aktiv === false ? "nein":"ja", a.notiz || ""
@@ -5929,7 +6585,7 @@ function einrichtungOeffnen(){
         zahlungsweg: v.sparen ? wegSparen.id : (v.bar && wegBar ? wegBar.id : wegStandard.id),
         kontoId:null, faelligTag:1, startMonat:1, tags,
         prioritaet: v.prio, aktiv:true, notiz:"",
-        zinsProzent:0, bestandCent:0, zielCent:0
+        renditeProzent:0, bestandCent:0, zielCent:0
       });
     });
 
@@ -5976,13 +6632,13 @@ function beispieldatenLaden(){
     p.zahlungswege.forEach(x => w[x.name] = x.id);
 
     /* name, Betrag in Cent, Intervall, Zahlungsweg, Fälligkeitstag, Priorität,
-       Tags, Startmonat, Konto, Sparfelder {zins, bestand, ziel} */
+       Tags, Startmonat, Konto, Sparfelder {rendite, bestand, ziel} */
     const A = (name, betrag, intervall, weg, tag, prio, tagNamen, startMonat, konto, spar) => ({
       id:idNeu("au"), name, betragCent:betrag, intervall, zahlungsweg: w[weg] || p.zahlungswege[0].id,
       kontoId: konto || null, faelligTag:tag, startMonat: startMonat || 1,
       tags:(tagNamen||[]).map(n => n === "Sparen" ? SPAR_TAG_ID : tags[n]).filter(Boolean),
       prioritaet:prio, aktiv:true, notiz:"",
-      zinsProzent: spar?.zins || 0, bestandCent: spar?.bestand || 0, zielCent: spar?.ziel || 0
+      renditeProzent: spar?.rendite || 0, bestandCent: spar?.bestand || 0, zielCent: spar?.ziel || 0
     });
 
     p.ausgaben = [
@@ -6015,15 +6671,15 @@ function beispieldatenLaden(){
       A("Taschengeld Kind", 3000, "monatlich", "Bar", 1, "fix", ["Fixkosten"], 1, konten.bar.id),
       A("Waschmaschine (Ersatz)", 65000, "einmalig", "Überweisung", 15, "variabel", [], 10),
 
-      /* Sparposten — jeder mit eigenem Zinssatz, Bestand und Ziel */
+      /* Sparposten — jeder mit eigener Rendite, Bestand und Ziel */
       A("Altersvorsorge ETF", 15000, "monatlich", "Dauerauftrag", 1, "fix", ["Sparen"], 1, null,
-        { zins:6, bestand:1240000, ziel:0 }),
+        { rendite:6, bestand:1240000, ziel:0 }),
       A("Sparplan Tagesgeld", 25000, "monatlich", "Dauerauftrag", 28, "fix", ["Sparen"], 1, konten.tg.id,
-        { zins:2.4, bestand:412000, ziel:1500000 }),
+        { rendite:2.4, bestand:412000, ziel:1500000 }),
       A("Notgroschen", 10000, "monatlich", "Dauerauftrag", 28, "fix", ["Sparen"], 1, konten.tg.id,
-        { zins:2.4, bestand:180000, ziel:900000 }),
+        { rendite:2.4, bestand:180000, ziel:900000 }),
       A("Rücklage Auto", 6000, "monatlich", "Dauerauftrag", 28, "fix", ["Sparen","Auto"], 1, konten.tg.id,
-        { zins:2.4, bestand:95000, ziel:400000 })
+        { rendite:2.4, bestand:95000, ziel:400000 })
     ];
 
     p.name = "Beispiel";

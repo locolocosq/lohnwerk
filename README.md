@@ -163,7 +163,7 @@ Wenn du erst mal schauen willst, wie das Ganze aussieht: Tippe auf **Mit Beispie
 | **Übersicht** | Die wichtigste Zahl: Was bleibt im Monat übrig — und wie viel davon fest verplant ist. Dazu der Geldfluss und die nächsten Abbuchungen. |
 | **Einnahmen** | Gehalt, Nebenjob, Kindergeld, Miete aus Untervermietung. |
 | **Ausgaben** | Alles, was rausgeht — und alles, was du zurücklegst. Suchbar, filterbar, gruppierbar. |
-| **Auswertung** | Vier Reiter: **Monatsanfang** (was muss wohin), **Ausgaben** (Diagramme), **Sparen** (Hochrechnung mit Zinsen und Inflation), **Analyse** (Quoten, Einsparpotenzial, Was-wäre-wenn). |
+| **Auswertung** | Fünf Reiter: **Monatsblatt** (die schlichte Tabellenansicht), **Ausgaben** (Diagramme), **Sparen** (Hochrechnung mit Rendite und Inflation), **Analyse** (Quoten, Einsparpotenzial, Was-wäre-wenn), **Werkzeuge** (Vermögensrechner, Zakat-Rechner). |
 | **Einstellungen** | Konten, Tags, Zahlungswege, Profile, Annahmen für die Hochrechnung, Sicherungen, Hell/Dunkel. |
 
 ### Wie Lohnwerk rechnet — der wichtigste Punkt
@@ -194,6 +194,36 @@ Der Reiter **Sparen** zeigt dann:
 **Lohnwerk erhöht deine Kontostände nie von allein.** Das wäre auch Unsinn — du kaufst ja zwischendurch etwas. Die Bestände änderst du nur dann, wenn sich wirklich etwas ändert. Alle Zukunftszahlen sind als Prognose gekennzeichnet, nicht als Kontostand.
 
 Die Annahmen für Inflation, jährliche Steigerung der Sparrate und den Zeitraum stellst du unter *Einstellungen → Annahmen für die Hochrechnung* ein.
+
+> **Zur Wortwahl:** Lohnwerk spricht durchgehend von **Rendite** und **Gewinn**, nicht von Zinsen. Gerechnet wird mit dem Ertrag einer Anlage — wie bei Gold, Aktien oder einer Beteiligung.
+
+### Das Monatsblatt
+
+Der erste Reiter der Auswertung ist die schlichte Tabellenansicht: Einkommen oben, darunter je ein Block pro Zahlungsweg mit Monats- und Jahresbetrag, ganz unten die Ergebniszeilen.
+
+```
+Einkommen                    3.930,67 €
+− auf dem Konto lassen       2.113,31 €
+− abheben                      805,00 €
+− zur Seite legen              560,00 €
+= bleibt übrig                 452,36 €
+```
+
+Jede Zeile ist antippbar und öffnet die Position zum Ändern. Auf dem Computer stehen die Blöcke nebeneinander, auf dem Handy untereinander. Unten gibt es die Zusammenfassung zum Kopieren.
+
+### Werkzeuge
+
+**Vermögensrechner** — Startkapital, monatliche oder jährliche Einzahlung, erwartete Rendite und Laufzeit eintragen. Er zeigt Endbetrag, Eingezahltes, Gewinn und die Kaufkraft in heutigem Geld, dazu den Verlauf als Diagramm. Er ändert nichts an deinen gespeicherten Daten.
+
+**Zakat-Rechner** — rechnet die Zakat auf Geldvermögen nach **hanafitischer** und **schafiitischer** Lehre.
+
+- Rechtsschule wählen; die Schwelle (Nisab) wechselt automatisch mit — Silber bei Hanafi, Gold bei Schafi'i, beides umstellbar
+- Vermögenswerte eintragen: Bargeld, Kontoguthaben, Gold und Silber in Gramm, Handelsware, Anlagen, Forderungen, Schulden
+- Der Rechner zeigt Schwelle, zakatpflichtiges Vermögen und die fälligen 2,5 %
+
+Die Tagespreise für Gold und Silber trägst du selbst ein — Lohnwerk holt bewusst nichts aus dem Netz.
+
+Vier ausklappbare Abschnitte erklären: was Zakat ist und ab wann sie fällig wird, was zum Vermögen zählt und was nicht, die Unterschiede zwischen Hanafi und Schafi'i, wer sie empfangen darf — und den Hinweis, dass der Rechner keine Rechtsauskunft ist und du bei Unklarheiten selbst recherchieren beziehungsweise jemanden fragen solltest, der sich auskennt.
 
 ### Kleine Kniffe, die viel sparen
 
@@ -271,8 +301,8 @@ Alternativ: Auf der Startseite des Repositories **Add file → Upload files**, d
 Nach ein bis zwei Minuten ist die neue Fassung online.
 
 > **Wichtig bei Aktualisierungen:** Weil die App offline funktioniert, hält sich der Browser eine Kopie. Damit die neue Fassung ankommt, muss in der Datei `sw.js` die Zeile
-> `const CACHE_NAME = "lohnwerk-v3";`
-> auf eine neue Nummer geändert werden — also `lohnwerk-v4`, `lohnwerk-v5` und so weiter.
+> `const CACHE_NAME = "lohnwerk-v4";`
+> auf eine neue Nummer geändert werden — also `lohnwerk-v5`, `lohnwerk-v6` und so weiter.
 > Danach die App schließen und neu öffnen; manchmal braucht es zwei Starts. **Deine Daten bleiben dabei erhalten.**
 
 ---
