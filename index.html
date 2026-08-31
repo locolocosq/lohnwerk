@@ -1673,6 +1673,13 @@ function zustandNeu(){
       hochrechnungJahre: 10,
       /* Angenommene Inflation in Prozent pro Jahr — für die Kaufkraft-Rechnung. */
       inflation: 2,
+      /* Zuletzt benutzte Edelmetallpreise für den Zakat-Rechner, in Cent je Gramm.
+         Sie bleiben gespeichert, damit du sie nicht jedes Mal neu eintragen musst. */
+      goldPreisCent: 0,
+      silberPreisCent: 0,
+      preiseStand: null,        // wann zuletzt gesetzt (ISO)
+      preiseAusNetz: false,     // geholt oder von Hand eingetragen?
+      kurseErlaubt: false,      // hat der Nutzer den Abruf schon einmal bestätigt?
       /* Erhöht sich dein Sparbetrag jedes Jahr? (Prozent, z. B. durch Gehaltsplus) */
       sparSteigerung: 0,
       letzteSicherung: null,
@@ -1732,6 +1739,11 @@ function zustandSaeubern(roh){
   z.einstellungen.notgroschenZiel = Number.isFinite(+e.notgroschenZiel) ? Math.max(0, Math.round(+e.notgroschenZiel)) : 0;
   z.einstellungen.hochrechnungJahre = Number.isFinite(+e.hochrechnungJahre) ? klemmen(Math.round(+e.hochrechnungJahre),1,40) : 10;
   z.einstellungen.inflation = Number.isFinite(+e.inflation) ? klemmen(+e.inflation,0,20) : 2;
+  z.einstellungen.goldPreisCent = Number.isFinite(+e.goldPreisCent) ? Math.max(0, Math.round(+e.goldPreisCent)) : 0;
+  z.einstellungen.silberPreisCent = Number.isFinite(+e.silberPreisCent) ? Math.max(0, Math.round(+e.silberPreisCent)) : 0;
+  z.einstellungen.preiseStand = typeof e.preiseStand === "string" ? e.preiseStand : null;
+  z.einstellungen.preiseAusNetz = e.preiseAusNetz === true;
+  z.einstellungen.kurseErlaubt = e.kurseErlaubt === true;
   z.einstellungen.sparSteigerung = Number.isFinite(+e.sparSteigerung) ? klemmen(+e.sparSteigerung,0,20) : 0;
   z.einstellungen.letzteSicherung = typeof e.letzteSicherung === "string" ? e.letzteSicherung : null;
   z.einstellungen.sicherungsHinweisAus = typeof e.sicherungsHinweisAus === "string" ? e.sicherungsHinweisAus : null;
@@ -1864,7 +1876,7 @@ function prSaeubern(roh){
       /* Nur für Sparposten: erwartete Rendite in Prozent pro Jahr und der Betrag,
          der heute schon zurückgelegt ist. Beides pflegt der Nutzer selbst —
          Lohnwerk schreibt Bestände niemals von allein fort. */
-      /* Das Feld hieß in einer früheren Fassung „zinsProzent". Beim Laden
+      /* Das Feld hieß in einer früheren Fassung „zinsProzent“. Beim Laden
          nehmen wir den alten Wert mit, damit nichts verlorengeht. */
       renditeProzent: Number.isFinite(+x.renditeProzent) ? klemmen(+x.renditeProzent,0,30)
                     : Number.isFinite(+x.zinsProzent) ? klemmen(+x.zinsProzent,0,30) : 0,
@@ -3114,7 +3126,7 @@ function zeichneAusgabenListe(){
     const istGefiltert = gefiltert.length !== p.ausgaben.length;
 
     /* Oben steht immer die Summe ALLER Positionen dieser Liste. Erst darunter
-       wird aufgeteilt — sonst liest sich „davon Sparen" so, als wäre der
+       wird aufgeteilt — sonst liest sich „davon Sparen“ so, als wäre der
        Sparbetrag in den Ausgaben enthalten. Ist er nicht: er kommt dazu. */
     const unterzeile = (farbe, name, neben, wert, fett) =>
       el("div",{ style:"display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-top:10px" },
@@ -4659,6 +4671,84 @@ function vermoegensRechner(){
 const NISAB_GOLD_GRAMM = 85;
 const NISAB_SILBER_GRAMM = 595;
 const ZAKAT_SATZ = 0.025;          // 2,5 % = ein Vierzigstel
+const FEINUNZE_GRAMM = 31.1034768; // eine Troy-Unze in Gramm
+
+/* ----------------------------------------------------------------
+   TAGESPREISE HOLEN
+
+   Das ist die EINZIGE Stelle in Lohnwerk, die etwas aus dem Internet
+   lädt — und sie läuft ausschließlich auf Knopfdruck. Übertragen wird
+   dabei nichts von dir: Es geht nur die Frage "was kostet gerade eine
+   Unze Gold" hinaus, keine deiner Zahlen. Alles andere in der App
+   funktioniert weiterhin vollständig offline.
+
+   Die Kurse kommen in US-Dollar je Feinunze und werden hier auf
+   Euro je Gramm umgerechnet.
+   ---------------------------------------------------------------- */
+
+/** Holt eine Adresse mit Zeitlimit. Wirft bei Fehler. */
+async function holen(url, ms = 8000){
+  const abbruch = new AbortController();
+  const uhr = setTimeout(() => abbruch.abort(), ms);
+  try{
+    const antwort = await fetch(url, { signal:abbruch.signal, cache:"no-store" });
+    if(!antwort.ok) throw new Error("Antwort " + antwort.status);
+    return await antwort.json();
+  } finally {
+    clearTimeout(uhr);
+  }
+}
+
+/** Der Dollar-Euro-Kurs, aus mehreren Quellen mit Rückfall. */
+async function eurKursHolen(){
+  const quellen = [
+    async () => (await holen("https://open.er-api.com/v6/latest/USD"))?.rates?.EUR,
+    async () => (await holen("https://api.exchangerate-api.com/v4/latest/USD"))?.rates?.EUR,
+    async () => (await holen("https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/usd.json"))?.usd?.eur
+  ];
+  for(const quelle of quellen){
+    try{
+      const kurs = await quelle();
+      if(Number.isFinite(kurs) && kurs > 0.3 && kurs < 3) return kurs;
+    }catch(fehler){ /* nächste Quelle versuchen */ }
+  }
+  throw new Error("Kein Wechselkurs erreichbar");
+}
+
+/**
+ * Liefert { goldCent, silberCent } — Euro-Cent je Gramm.
+ * Wirft eine Fehlermeldung in Klartext, wenn etwas nicht klappt.
+ */
+async function edelmetallpreiseHolen(){
+  if(!navigator.onLine) throw new Error("Du bist gerade offline.");
+
+  let gold, silber, kurs;
+  try{
+    [gold, silber] = await Promise.all([
+      holen("https://api.gold-api.com/price/XAU"),
+      holen("https://api.gold-api.com/price/XAG")
+    ]);
+  }catch(fehler){
+    throw new Error("Der Preisdienst ist gerade nicht erreichbar.");
+  }
+  const goldUsdUnze = Number(gold?.price);
+  const silberUsdUnze = Number(silber?.price);
+  if(!Number.isFinite(goldUsdUnze) || !Number.isFinite(silberUsdUnze) || goldUsdUnze <= 0 || silberUsdUnze <= 0){
+    throw new Error("Der Preisdienst hat unerwartete Werte geliefert.");
+  }
+
+  try{
+    kurs = await eurKursHolen();
+  }catch(fehler){
+    throw new Error("Der Wechselkurs ist gerade nicht erreichbar.");
+  }
+
+  return {
+    goldCent:   Math.round(goldUsdUnze   * kurs / FEINUNZE_GRAMM * 100),
+    silberCent: Math.round(silberUsdUnze * kurs / FEINUNZE_GRAMM * 100),
+    stand: new Date().toISOString()
+  };
+}
 
 function zakatRechner(){
   const karte = el("div",{ class:"karte" });
@@ -4726,21 +4816,80 @@ function zakatRechner(){
       : "Die Goldschwelle liegt höher. Sie ist in der schafiitischen Praxis für Bargeld der übliche Maßstab.";
   }
 
-  /* --- Preise --- */
-  const goldFeld = betragsFeld(0, "Goldpreis je Gramm");
+  /* --- Preise: zuletzt benutzte Werte vorbelegen --- */
+  const goldFeld = betragsFeld(S.einstellungen.goldPreisCent || 0, "Goldpreis je Gramm");
   goldFeld.feld.removeAttribute("data-autofokus");
-  goldFeld.feld.placeholder = "Tagespreis eintragen";
-  const silberFeld = betragsFeld(0, "Silberpreis je Gramm");
+  goldFeld.feld.placeholder = "Tagespreis";
+  const silberFeld = betragsFeld(S.einstellungen.silberPreisCent || 0, "Silberpreis je Gramm");
   silberFeld.feld.removeAttribute("data-autofokus");
-  silberFeld.feld.placeholder = "Tagespreis eintragen";
+  silberFeld.feld.placeholder = "Tagespreis";
 
-  karte.appendChild(el("div",{ style:"padding:16px 16px 4px 18px;border-radius:14px;background:var(--karte-2);box-shadow:inset 3px 0 0 var(--akzent);margin-bottom:20px" },
+  const standZeile = el("p",{ class:"t-klein", style:"line-height:1.55" });
+  const standAktualisieren = () => {
+    const stand = S.einstellungen.preiseStand;
+    if(!stand){
+      standZeile.textContent = "Noch keine Preise hinterlegt.";
+      return;
+    }
+    const tage = tageSeit(stand);
+    const woher = S.einstellungen.preiseAusNetz ? "abgerufen" : "von dir eingetragen";
+    standZeile.textContent = `Zuletzt ${woher}: ${datumLesbar(stand)}`
+      + (tage === 0 ? " (heute)" : tage === 1 ? " (gestern)" : tage !== null ? ` (vor ${tage} Tagen)` : "")
+      + (tage !== null && tage > 3 ? " — Edelmetallpreise schwanken täglich, hol sie am besten neu." : "");
+  };
+  standAktualisieren();
+
+  const holKnopf = el("button",{ class:"knopf primaer breit", type:"button",
+    onclick:() => preiseAbrufen() }, icon("ic-wiederkehr"), "Tagespreis holen");
+
+  async function preiseAbrufen(){
+    /* Beim allerersten Mal erklären, was dabei passiert. */
+    if(!S.einstellungen.kurseErlaubt){
+      bestaetigen({
+        titel:"Kurse aus dem Internet holen?",
+        text:"Lohnwerk fragt dann bei zwei öffentlichen Preisdiensten nach dem heutigen Gold- und Silberkurs "
+           + "und rechnet ihn in Euro je Gramm um. Von deinen Zahlen wird dabei nichts übertragen — es geht nur "
+           + "die Frage nach dem Kurs hinaus. Alles andere in Lohnwerk bleibt offline.",
+        knopfText:"Einverstanden, holen",
+        dann:() => { S.einstellungen.kurseErlaubt = true; speichern(); wirklichAbrufen(); }
+      });
+      return;
+    }
+    wirklichAbrufen();
+  }
+
+  async function wirklichAbrufen(){
+    holKnopf.disabled = true;
+    holKnopf.replaceChildren(document.createTextNode("Wird geholt …"));
+    try{
+      const preise = await edelmetallpreiseHolen();
+      goldFeld.feld.value = zahlFuerFeld(preise.goldCent);
+      silberFeld.feld.value = zahlFuerFeld(preise.silberCent);
+      S.einstellungen.goldPreisCent = preise.goldCent;
+      S.einstellungen.silberPreisCent = preise.silberCent;
+      S.einstellungen.preiseStand = preise.stand;
+      S.einstellungen.preiseAusNetz = true;
+      speichern();
+      standAktualisieren();
+      rechnen();
+      toast(`Gold ${euro(preise.goldCent)} · Silber ${euro(preise.silberCent)} je Gramm.`);
+    }catch(fehler){
+      toast(String(fehler.message || fehler) + " Trag die Preise so lange von Hand ein.", null, 9000);
+    }finally{
+      holKnopf.disabled = false;
+      holKnopf.replaceChildren(icon("ic-wiederkehr"), document.createTextNode("Tagespreis holen"));
+    }
+  }
+
+  karte.appendChild(el("div",{ style:"padding:16px 16px 16px 18px;border-radius:14px;background:var(--karte-2);box-shadow:inset 3px 0 0 var(--akzent);margin-bottom:20px" },
     el("div",{ class:"t-kapitaelchen", style:"margin-bottom:12px", text:"Tagespreise" }),
     goldFeld.box,
     silberFeld.box,
-    el("p",{ class:"t-klein", style:"line-height:1.55;padding-bottom:12px",
-      text:"Lohnwerk holt keine Kurse aus dem Netz — die App soll offline und ohne Datenübertragung bleiben. "
-         + "Schau den Tagespreis kurz nach und trag ihn hier ein. Für die Schwelle zählt nur der Preis der gewählten Grundlage." })
+    holKnopf,
+    el("div",{ style:"margin-top:12px" }, standZeile),
+    el("p",{ class:"t-klein", style:"line-height:1.55;margin-top:8px",
+      text:"Der Knopf ist die einzige Stelle, an der Lohnwerk etwas aus dem Internet lädt — und nur, wenn du ihn drückst. "
+         + "Du kannst die Preise genauso gut selbst nachschlagen und eintippen. Für die Schwelle zählt nur der Preis der gewählten Grundlage." })
   ));
 
   /* --- Vermögenswerte --- */
@@ -4782,6 +4931,20 @@ function zakatRechner(){
   function rechnen(){
     Z.goldPreis = goldFeld.wert() ?? 0;
     Z.silberPreis = silberFeld.wert() ?? 0;
+
+    /* Selbst eingetippte Preise merken, damit sie beim nächsten Öffnen
+       wieder da sind. Ein von Hand geänderter Wert gilt nicht mehr als
+       abgerufen — sonst stimmt die Herkunftsangabe nicht. */
+    if(Z.goldPreis !== (S.einstellungen.goldPreisCent||0) || Z.silberPreis !== (S.einstellungen.silberPreisCent||0)){
+      S.einstellungen.goldPreisCent = Z.goldPreis;
+      S.einstellungen.silberPreisCent = Z.silberPreis;
+      if(Z.goldPreis > 0 || Z.silberPreis > 0){
+        S.einstellungen.preiseStand = new Date().toISOString();
+        S.einstellungen.preiseAusNetz = false;
+      }
+      speichern();
+      standAktualisieren();
+    }
     ["bargeld","guthaben","handelsware","anlagen","forderungen","schulden"].forEach(s => {
       Z[s] = felder[s].wert() ?? 0;
     });
@@ -6169,7 +6332,8 @@ function zeichneEinstellungen(){
       el("h2",{ class:"t-h2", text:"Wo liegen meine Daten?" })
     ),
     el("div",{ style:"font-size:15px;line-height:1.6;color:var(--text-2);display:grid;gap:12px" },
-      el("p",{ text:"Alles, was du hier einträgst, bleibt auf diesem Gerät. In diesem Browser. Nichts wird irgendwohin geschickt, es gibt keinen Server und kein Konto." }),
+      el("p",{ text:"Alles, was du hier einträgst, bleibt auf diesem Gerät. In diesem Browser. Nichts davon wird irgendwohin geschickt, es gibt keinen Server und kein Konto." }),
+      el("p",{ text:"Eine einzige Ausnahme: der Knopf „Tagespreis holen“ im Zakat-Rechner. Wenn du ihn drückst, fragt Lohnwerk nach dem heutigen Gold- und Silberkurs. Auch dabei geht nichts von dir hinaus — nur die Frage nach dem Kurs. Ohne diesen Knopf verlässt keine einzige Anfrage dein Gerät." }),
       el("p",{ text:"Das heißt auch: Wenn du die Browserdaten löschst, den privaten Modus benutzt oder das Gerät wechselst, sind die Daten weg." }),
       el("p",{ text:"Deshalb: Speichere ab und zu eine Sicherung. Das ist eine einzelne Datei, die du auf dem Rechner, in deiner Cloud oder auf einem Stick ablegen kannst. Mit „Sicherung laden“ ist alles in Sekunden zurück." }),
       el("p",{ text:"Falls du diese App aus einem öffentlichen GitHub-Repository geladen hast: Dort liegt nur das Programm. Deine Zahlen waren nie dort." })

@@ -221,7 +221,9 @@ Jede Zeile ist antippbar und öffnet die Position zum Ändern. Auf dem Computer 
 - Vermögenswerte eintragen: Bargeld, Kontoguthaben, Gold und Silber in Gramm, Handelsware, Anlagen, Forderungen, Schulden
 - Der Rechner zeigt Schwelle, zakatpflichtiges Vermögen und die fälligen 2,5 %
 
-Die Tagespreise für Gold und Silber trägst du selbst ein — Lohnwerk holt bewusst nichts aus dem Netz.
+Für die Tagespreise von Gold und Silber gibt es einen Knopf **„Tagespreis holen"**. Er fragt zwei öffentliche Preisdienste nach dem heutigen Kurs und rechnet ihn in Euro je Gramm um. Du kannst die Preise genauso gut selbst nachschlagen und eintippen — beides wird gespeichert, mit Datum und dem Vermerk, woher der Wert stammt.
+
+> **Das ist die einzige Stelle in Lohnwerk, die etwas aus dem Internet lädt** — und nur, wenn du den Knopf drückst. Beim ersten Mal fragt die App einmalig nach. Übertragen wird dabei nichts von dir: Es geht nur die Frage nach dem Goldkurs hinaus, keine deiner Zahlen. Alles andere in der App funktioniert weiterhin vollständig offline; ohne diesen Knopf verlässt keine einzige Anfrage dein Gerät.
 
 Vier ausklappbare Abschnitte erklären: was Zakat ist und ab wann sie fällig wird, was zum Vermögen zählt und was nicht, die Unterschiede zwischen Hanafi und Schafi'i, wer sie empfangen darf — und den Hinweis, dass der Rechner keine Rechtsauskunft ist und du bei Unklarheiten selbst recherchieren beziehungsweise jemanden fragen solltest, der sich auskennt.
 
@@ -245,7 +247,9 @@ Vier ausklappbare Abschnitte erklären: was Zakat ist und ab wann sie fällig wi
 
 ### Wo sie liegen
 
-In deinem Browser, auf deinem Gerät. Sonst nirgends. Kein Server, keine Cloud, kein Konto, keine Werbung, kein Tracking. Die App verschickt nichts — sie funktioniert ja sogar im Flugmodus.
+In deinem Browser, auf deinem Gerät. Sonst nirgends. Kein Server, keine Cloud, kein Konto, keine Werbung, kein Tracking. Die App verschickt nichts von deinen Zahlen — sie funktioniert ja sogar im Flugmodus.
+
+Die einzige Verbindung nach außen ist der Knopf **„Tagespreis holen"** im Zakat-Rechner, und auch der nur, wenn du ihn drückst. Dabei geht nichts von dir hinaus, sondern nur die Frage nach dem Gold- und Silberkurs.
 
 Das hat eine wichtige Kehrseite:
 
@@ -301,8 +305,8 @@ Alternativ: Auf der Startseite des Repositories **Add file → Upload files**, d
 Nach ein bis zwei Minuten ist die neue Fassung online.
 
 > **Wichtig bei Aktualisierungen:** Weil die App offline funktioniert, hält sich der Browser eine Kopie. Damit die neue Fassung ankommt, muss in der Datei `sw.js` die Zeile
-> `const CACHE_NAME = "lohnwerk-v4";`
-> auf eine neue Nummer geändert werden — also `lohnwerk-v5`, `lohnwerk-v6` und so weiter.
+> `const CACHE_NAME = "lohnwerk-v5";`
+> auf eine neue Nummer geändert werden — also `lohnwerk-v6`, `lohnwerk-v7` und so weiter.
 > Danach die App schließen und neu öffnen; manchmal braucht es zwei Starts. **Deine Daten bleiben dabei erhalten.**
 
 ---
