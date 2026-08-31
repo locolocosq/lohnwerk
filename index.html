@@ -1677,6 +1677,15 @@ function zustandNeu(){
          Sie bleiben gespeichert, damit du sie nicht jedes Mal neu eintragen musst. */
       goldPreisCent: 0,
       silberPreisCent: 0,
+      /* Die eingetragenen Vermögenswerte des Zakat-Rechners. Sie bleiben
+         erhalten, damit du beim nächsten Mal nur noch anpassen musst,
+         was sich geändert hat. */
+      zakat: {
+        schule: "hanafi", grundlage: "silber",
+        bargeld: 0, guthaben: 0, goldGramm: 0, silberGramm: 0,
+        handelsware: 0, anlagen: 0, forderungen: 0, schulden: 0,
+        stand: null
+      },
       preiseStand: null,        // wann zuletzt gesetzt (ISO)
       preiseAusNetz: false,     // geholt oder von Hand eingetragen?
       kurseErlaubt: false,      // hat der Nutzer den Abruf schon einmal bestätigt?
@@ -1739,6 +1748,20 @@ function zustandSaeubern(roh){
   z.einstellungen.notgroschenZiel = Number.isFinite(+e.notgroschenZiel) ? Math.max(0, Math.round(+e.notgroschenZiel)) : 0;
   z.einstellungen.hochrechnungJahre = Number.isFinite(+e.hochrechnungJahre) ? klemmen(Math.round(+e.hochrechnungJahre),1,40) : 10;
   z.einstellungen.inflation = Number.isFinite(+e.inflation) ? klemmen(+e.inflation,0,20) : 2;
+  /* Die Vermögenswerte des Zakat-Rechners zurückholen. */
+  const zk = e.zakat && typeof e.zakat === "object" ? e.zakat : {};
+  z.einstellungen.zakat = {
+    schule: ["hanafi","schafii"].includes(zk.schule) ? zk.schule : "hanafi",
+    grundlage: ["silber","gold"].includes(zk.grundlage) ? zk.grundlage : "silber",
+    stand: typeof zk.stand === "string" ? zk.stand : null
+  };
+  ["bargeld","guthaben","handelsware","anlagen","forderungen","schulden"].forEach(s => {
+    z.einstellungen.zakat[s] = Number.isFinite(+zk[s]) ? Math.max(0, Math.round(+zk[s])) : 0;
+  });
+  ["goldGramm","silberGramm"].forEach(s => {
+    z.einstellungen.zakat[s] = Number.isFinite(+zk[s]) ? Math.max(0, +zk[s]) : 0;
+  });
+
   z.einstellungen.goldPreisCent = Number.isFinite(+e.goldPreisCent) ? Math.max(0, Math.round(+e.goldPreisCent)) : 0;
   z.einstellungen.silberPreisCent = Number.isFinite(+e.silberPreisCent) ? Math.max(0, Math.round(+e.silberPreisCent)) : 0;
   z.einstellungen.preiseStand = typeof e.preiseStand === "string" ? e.preiseStand : null;
@@ -4759,24 +4782,39 @@ function zakatRechner(){
     text:"Rechnet aus, ob du zakatpflichtig bist und wie viel fällig wird. "
        + "Trag die Werte ein, die du am Stichtag besitzt." }));
 
+  /* Die zuletzt eingetragenen Werte übernehmen. */
+  const gespeichert = S.einstellungen.zakat || {};
   const Z = {
-    schule: "hanafi",        // hanafi | schafii
-    grundlage: "silber",     // silber | gold
+    schule: gespeichert.schule || "hanafi",        // hanafi | schafii
+    grundlage: gespeichert.grundlage || "silber",  // silber | gold
     goldPreis: 0,            // Cent je Gramm
     silberPreis: 0,          // Cent je Gramm
     bargeld: 0, guthaben: 0, goldGramm: 0, silberGramm: 0,
     handelsware: 0, anlagen: 0, forderungen: 0, schulden: 0
   };
 
+  /** Merkt sich alle Eingaben, damit sie beim nächsten Mal wieder da sind. */
+  const merken = () => {
+    S.einstellungen.zakat = {
+      schule: Z.schule, grundlage: Z.grundlage,
+      bargeld: Z.bargeld, guthaben: Z.guthaben,
+      goldGramm: Z.goldGramm, silberGramm: Z.silberGramm,
+      handelsware: Z.handelsware, anlagen: Z.anlagen,
+      forderungen: Z.forderungen, schulden: Z.schulden,
+      stand: new Date().toISOString()
+    };
+    speichern();
+  };
+
   /* --- Rechtsschule --- */
   const schuleWahl = el("div",{ class:"segment breit", role:"group", "aria-label":"Rechtsschule" },
-    el("button",{ type:"button", "aria-pressed":"true", text:"Hanafi", onclick:(e) => {
+    el("button",{ type:"button", "aria-pressed": Z.schule === "hanafi" ? "true":"false", text:"Hanafi", onclick:(e) => {
       Z.schule = "hanafi"; Z.grundlage = "silber";
       e.target.parentElement.children[0].setAttribute("aria-pressed","true");
       e.target.parentElement.children[1].setAttribute("aria-pressed","false");
       grundlageAktualisieren(); rechnen();
     }}),
-    el("button",{ type:"button", "aria-pressed":"false", text:"Schafi'i", onclick:(e) => {
+    el("button",{ type:"button", "aria-pressed": Z.schule === "schafii" ? "true":"false", text:"Schafi'i", onclick:(e) => {
       Z.schule = "schafii"; Z.grundlage = "gold";
       e.target.parentElement.children[0].setAttribute("aria-pressed","false");
       e.target.parentElement.children[1].setAttribute("aria-pressed","true");
@@ -4895,7 +4933,7 @@ function zakatRechner(){
   /* --- Vermögenswerte --- */
   const felder = {};
   const wertFeld = (schluessel, beschriftung, hinweis) => {
-    const f = betragsFeld(0, beschriftung);
+    const f = betragsFeld(gespeichert[schluessel] || 0, beschriftung);
     f.feld.removeAttribute("data-autofokus");
     /* Der Rechenhinweis von betragsFeld wird hier durch die Sacherklärung
        ersetzt — zwei Zeilen unter jedem der acht Felder wären zu unruhig. */
@@ -4909,7 +4947,8 @@ function zakatRechner(){
   };
   const grammFeld = (schluessel, beschriftung, hinweis) => {
     const inp = el("input",{ class:"eingabe", type:"number", min:"0", step:"0.1",
-      inputmode:"decimal", placeholder:"0" });
+      inputmode:"decimal", placeholder:"0",
+      value: gespeichert[schluessel] ? String(gespeichert[schluessel]).replace(".",",") : "" });
     inp.addEventListener("input", rechnen);
     felder[schluessel] = { feld:inp, wert: () => parseFloat(String(inp.value).replace(",",".")) || 0 };
     return el("div",{ class:"feld" },
@@ -4973,7 +5012,12 @@ function zakatRechner(){
     const netto = Z.schule === "hanafi" ? Math.max(0, brutto - Z.schulden) : brutto;
     const pflichtig = !preisFehlt && netto >= nisab && nisab > 0;
     const betrag = pflichtig ? Math.round(netto * ZAKAT_SATZ) : 0;
+    /* Was man monatlich zurücklegen müsste, um den Betrag im Jahr beisammen
+       zu haben. Bewusst durch 12 geteilt — gerechnet wird in Kalendermonaten,
+       auch wenn der Zakat-Stichtag dem Mondjahr folgt. */
+    const proMonat = Math.round(betrag / 12);
 
+    merken();
     const kinder = [];
 
     if(preisFehlt){
@@ -4994,6 +5038,30 @@ function zakatRechner(){
             ? `2,5 % von ${euro(netto)}. Voraussetzung ist, dass dein Vermögen ein islamisches Mondjahr lang über der Schwelle lag.`
             : `Dein Vermögen von ${euro(netto)} liegt unter der Schwelle von ${euro(nisab)}. Dann ist keine Zakat fällig.` })
       ));
+
+      /* Was monatlich zurückzulegen wäre, um den Betrag beisammen zu haben. */
+      if(pflichtig && proMonat > 0){
+        const schonDa = P().ausgaben.some(a => /zakat/i.test(a.name));
+        kinder.push(el("div",{ style:"padding:18px;border-radius:14px;margin-top:12px;background:var(--karte-2);box-shadow:inset 3px 0 0 var(--akzent)" },
+          el("div",{ class:"t-kapitaelchen", text:"Monatlich zurücklegen" }),
+          el("div",{ style:"font-size:30px;font-weight:650;letter-spacing:-.025em;font-variant-numeric:tabular-nums;margin-top:2px;color:var(--akzent)",
+            text:euro(proMonat) }),
+          el("p",{ class:"t-klein", style:"margin-top:8px;line-height:1.55",
+            html:`So hast du die ${euro(betrag)} in zwölf Monaten beisammen und musst sie nicht auf einmal aufbringen.` }),
+          el("div",{ class:"knopf-reihe", style:"margin-top:14px" },
+            el("button",{ class:"knopf klein " + (schonDa ? "rahmen" : "primaer"), type:"button",
+              onclick:() => zakatAlsPostenAnlegen(betrag) },
+              icon("ic-plus"), schonDa ? "Betrag aktualisieren" : "Als Position eintragen"),
+            el("button",{ class:"knopf klein rahmen", type:"button",
+              onclick:(ev) => kopieren(`Zakat ${euro(betrag)} im Jahr — ${euro(proMonat)} im Monat zurücklegen`, ev.currentTarget) },
+              "Kopieren")
+          ),
+          el("p",{ class:"t-klein", style:"margin-top:10px;line-height:1.5",
+            text: schonDa
+              ? "Du hast Zakat bereits als Position. Der Knopf setzt den Betrag auf den neu berechneten Wert."
+              : "Der Knopf legt „Zakat“ als jährliche Position an. Sie taucht dann im Monatsblatt und in der Rücklage für Jahresrechnungen auf." })
+        ));
+      }
 
       /* Aufschlüsselung */
       const zeile = (name, neben, wert, farbe) => el("div",{ class:"datenzeile" },
@@ -5042,6 +5110,56 @@ function zakatRechner(){
   grundlageAktualisieren();
   rechnen();
   return karte;
+}
+
+/**
+ * Trägt den berechneten Zakat-Betrag als jährliche Position ein.
+ * Damit erscheint er im Monatsblatt und in der Rücklagenempfehlung —
+ * die App rechnet den Monatsanteil dann selbst aus.
+ */
+function zakatAlsPostenAnlegen(jahresBetragCent){
+  const p = P();
+  const vorhanden = p.ausgaben.find(a => /zakat/i.test(a.name));
+
+  if(vorhanden){
+    const alt = vorhanden.betragCent;
+    vorhanden.betragCent = jahresBetragCent;
+    vorhanden.intervall = "jaehrlich";
+    aendern();
+    toast(`Zakat auf ${euro(jahresBetragCent)} im Jahr gesetzt.`, () => {
+      const p2 = P().ausgaben.find(a => a.id === vorhanden.id);
+      if(p2) p2.betragCent = alt;
+      aendern();
+    });
+    return;
+  }
+
+  /* Ein Zahlungsweg, der zu einer Überweisung passt. */
+  const weg = p.zahlungswege.find(w => /überweisung|ueberweisung/i.test(w.name))
+           || p.zahlungswege.find(w => w.kontotyp === "giro")
+           || p.zahlungswege[0];
+
+  const neu = {
+    id: idNeu("au"),
+    name: "Zakat",
+    betragCent: jahresBetragCent,
+    intervall: "jaehrlich",
+    zahlungsweg: weg.id,
+    kontoId: null,
+    faelligTag: 1,
+    startMonat: heute().getMonth() + 1,
+    tags: [],
+    prioritaet: "fix",
+    aktiv: true,
+    notiz: "Aus dem Zakat-Rechner übernommen",
+    renditeProzent: 0, bestandCent: 0, zielCent: 0
+  };
+  p.ausgaben.push(neu);
+  aendern();
+  toast(`Zakat als jährliche Position angelegt — ${euro(Math.round(jahresBetragCent/12))} im Monat.`, () => {
+    P().ausgaben = P().ausgaben.filter(a => a.id !== neu.id);
+    aendern();
+  }, 8000);
 }
 
 /** Die ausklappbare Erklärung zur Zakat. */

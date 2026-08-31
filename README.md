@@ -220,6 +220,9 @@ Jede Zeile ist antippbar und öffnet die Position zum Ändern. Auf dem Computer 
 - Rechtsschule wählen; die Schwelle (Nisab) wechselt automatisch mit — Silber bei Hanafi, Gold bei Schafi'i, beides umstellbar
 - Vermögenswerte eintragen: Bargeld, Kontoguthaben, Gold und Silber in Gramm, Handelsware, Anlagen, Forderungen, Schulden
 - Der Rechner zeigt Schwelle, zakatpflichtiges Vermögen und die fälligen 2,5 %
+- Darunter steht, **wie viel du monatlich zurücklegen müsstest**, um den Jahresbetrag beisammen zu haben — der Betrag geteilt durch zwölf
+- Ein Knopf trägt die Zakat als jährliche Position ein. Sie taucht dann im Monatsblatt und in der Rücklage für Jahresrechnungen auf; ein zweiter Klick später aktualisiert nur den Betrag
+- **Alle Eingaben bleiben gespeichert** — Vermögenswerte, Rechtsschule und Preise. Beim nächsten Mal passt du nur an, was sich geändert hat
 
 Für die Tagespreise von Gold und Silber gibt es einen Knopf **„Tagespreis holen"**. Er fragt zwei öffentliche Preisdienste nach dem heutigen Kurs und rechnet ihn in Euro je Gramm um. Du kannst die Preise genauso gut selbst nachschlagen und eintippen — beides wird gespeichert, mit Datum und dem Vermerk, woher der Wert stammt.
 
@@ -307,8 +310,8 @@ Alternativ: Auf der Startseite des Repositories **Add file → Upload files**, d
 Nach ein bis zwei Minuten ist die neue Fassung online.
 
 > **Wichtig bei Aktualisierungen:** Weil die App offline funktioniert, hält sich der Browser eine Kopie. Damit die neue Fassung ankommt, muss in der Datei `sw.js` die Zeile
-> `const CACHE_NAME = "lohnwerk-v7";`
-> auf eine neue Nummer geändert werden — also `lohnwerk-v8`, `lohnwerk-v9` und so weiter.
+> `const CACHE_NAME = "lohnwerk-v8";`
+> auf eine neue Nummer geändert werden — also `lohnwerk-v9`, `lohnwerk-v10` und so weiter.
 > Danach die App schließen und neu öffnen; manchmal braucht es zwei Starts. **Deine Daten bleiben dabei erhalten.**
 
 ---
