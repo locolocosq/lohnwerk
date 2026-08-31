@@ -551,7 +551,7 @@ select.eingabe{
   font-size:22px;font-weight:600;font-variant-numeric:tabular-nums;
   letter-spacing:-.02em;min-height:56px;
 }
-.feld-hinweis{font-size:12.5px;color:var(--text-3);margin-top:6px;}
+.feld-hinweis{font-size:12.5px;color:var(--text-2);margin-top:6px;}
 .feld-hinweis.warn{color:var(--rot);}
 .feld-reihe{display:flex;gap:var(--s3);}
 .feld-reihe > *{flex:1;min-width:0;}
@@ -745,6 +745,7 @@ input[type="range"]::-moz-range-thumb{
 }
 @keyframes balken-wachsen{from{transform:scaleX(0);}to{transform:scaleX(1);}}
 @keyframes balken-hoch{from{transform:scaleY(0);}to{transform:scaleY(1);}}
+@keyframes einblenden-weich{from{opacity:0;}to{opacity:1;}}
 .balken-zeile .bz-wert{
   flex:none;font-size:13.5px;font-variant-numeric:tabular-nums;
   color:var(--text-2);min-width:74px;text-align:right;
@@ -1090,6 +1091,19 @@ details.klapp .klapp-inhalt{padding-bottom:var(--s4);}
   <symbol id="ic-ablage" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
     <path d="M24 32V8"/><path d="M15 17l9-9 9 9"/><path d="M8 30v6a4 4 0 0 0 4 4h24a4 4 0 0 0 4-4v-6"/>
   </symbol>
+  <symbol id="ic-wiederkehr" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M20 11.5A8 8 0 0 0 6.3 6.3L4 8.5"/><path d="M4 4.5v4h4"/>
+    <path d="M4 12.5a8 8 0 0 0 13.7 5.2L20 15.5"/><path d="M20 19.5v-4h-4"/>
+  </symbol>
+  <symbol id="ic-handy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="6.5" y="2.5" width="11" height="19" rx="2.6"/><path d="M10.5 18.5h3"/>
+  </symbol>
+  <symbol id="ic-ziel" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.6"/><circle cx="12" cy="12" r="1" fill="currentColor"/>
+  </symbol>
+  <symbol id="ic-wachstum" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M3 17.5 9 11l4 3.6 7.5-8.1"/><path d="M15 6.5h5.5V12"/>
+  </symbol>
   <symbol id="ic-marke" viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.4">
     <path d="M5 25V7"/><path d="M5 25h22"/><path d="M11 21v-6"/><path d="M17 21V9"/><path d="M23 21v-9"/>
   </symbol>
@@ -1211,7 +1225,7 @@ details.klapp .klapp-inhalt{padding-bottom:var(--s4);}
 
 const SPEICHER_SCHLUESSEL = "lohnwerk.v1";
 const SPEICHER_DEFEKT = "lohnwerk.backup.defekt";
-const SCHEMA_VERSION = 1;
+const SCHEMA_VERSION = 2;
 
 /* Intervalle. faktor = wie oft im Jahr. So bleibt alles ganzzahlig in Cent
    und wir teilen erst ganz am Ende durch 12 — keine Rundungsfehler. */
@@ -1229,13 +1243,19 @@ const INTERVALLE = {
    auf 12 Monate verteilt. Sonst würde das Geld in der Monatsplanung fehlen.
    In der Oberfläche steht überall dabei, dass es einmalig ist. */
 
-const ZAHLUNGSWEGE = {
-  bar:         { name:"Bar",          icon:"ic-bar",   kontotyp:"bargeld" },
-  giro:        { name:"Girokonto",    icon:"ic-bank",  kontotyp:"giro" },
-  lastschrift: { name:"Lastschrift",  icon:"ic-bank",  kontotyp:"giro" },
-  tagesgeld:   { name:"Tagesgeld",    icon:"ic-sparen",kontotyp:"tagesgeld" },
-  kreditkarte: { name:"Kreditkarte",  icon:"ic-karte", kontotyp:"kreditkarte" }
-};
+/* Zahlungswege sind frei verwaltbar. Diese hier legt Lohnwerk beim ersten
+   Start an; der Nutzer kann sie umbenennen, löschen und eigene ergänzen. */
+const ZAHLUNGSWEG_VORLAGEN = [
+  { name:"Bar",          icon:"ic-bar",    kontotyp:"bargeld" },
+  { name:"Überweisung",  icon:"ic-bank",   kontotyp:"giro" },
+  { name:"Dauerauftrag", icon:"ic-wiederkehr", kontotyp:"giro" },
+  { name:"Lastschrift",  icon:"ic-bank",   kontotyp:"giro" },
+  { name:"Kreditkarte",  icon:"ic-karte",  kontotyp:"kreditkarte" },
+  { name:"Tagesgeld",    icon:"ic-sparen", kontotyp:"tagesgeld" }
+];
+
+/* Symbole, die für einen Zahlungsweg wählbar sind. */
+const WEG_ICONS = ["ic-bank","ic-bar","ic-karte","ic-wiederkehr","ic-sparen","ic-depot","ic-handy"];
 
 const KONTOTYPEN = {
   bargeld:     { name:"Bargeld",     icon:"ic-bar" },
@@ -1259,28 +1279,62 @@ const MONATE_KURZ = ["Jan","Feb","Mär","Apr","Mai","Jun","Jul","Aug","Sep","Okt
 const MONATE_LANG = ["Januar","Februar","März","April","Mai","Juni","Juli","August","September","Oktober","November","Dezember"];
 const WOCHENTAGE = ["Mo","Di","Mi","Do","Fr","Sa","So"];
 
-/* Vorschläge für den Einrichtungs-Assistenten */
-const KATEGORIE_VORSCHLAEGE = [
-  "Miete/Wohnen","Nebenkosten","Strom","Heizung","Internet & Telefon","Mobilfunk",
-  "Rundfunkbeitrag","Lebensmittel","Drogerie","Haftpflichtversicherung","Hausratversicherung",
-  "KFZ-Versicherung","Krankenversicherung","Berufsunfähigkeit","Altersvorsorge","Auto (Sprit)",
-  "Auto (Steuer)","Auto (Wartung)","ÖPNV-Ticket","Kredit/Rate","Abos & Streaming","Fitness",
-  "Kleidung","Friseur","Arzt & Medikamente","Haustier","Kinderbetreuung","Urlaub","Geschenke",
-  "Sparen","Notgroschen","Puffer"
-];
+/* Das Spar-Tag ist fest eingebaut und lässt sich nicht löschen.
+   Alles, was damit markiert ist, gilt nicht als Ausgabe, sondern als
+   Geld, das dir erhalten bleibt — mit eigenem Zinssatz je Position. */
+const SPAR_TAG_ID = "tag_sparen";
+const SPAR_TAG = { id:SPAR_TAG_ID, name:"Sparen", farbe:"p2", fest:true };
 
 const TAG_VORSCHLAEGE = [
-  { name:"Bar",            farbe:"p3" },
-  { name:"Girokonto",      farbe:"p1" },
-  { name:"Tagesgeld",      farbe:"p2" },
   { name:"Fixkosten",      farbe:"p7" },
   { name:"Variabel",       farbe:"p5" },
   { name:"Kündbar",        farbe:"p6" },
   { name:"Jährlich fällig",farbe:"p4" },
   { name:"Notwendig",      farbe:"p8" },
   { name:"Luxus",          farbe:"p4" },
-  { name:"Gemeinsam",      farbe:"p5" },
-  { name:"Privat",         farbe:"p7" }
+  { name:"Wohnen",         farbe:"p1" },
+  { name:"Auto",           farbe:"p3" },
+  { name:"Versicherung",   farbe:"p5" },
+  { name:"Abo",            farbe:"p6" },
+  { name:"Gemeinsam",      farbe:"p7" },
+  { name:"Privat",         farbe:"p8" }
+];
+
+/* Vorschläge im Einrichtungs-Assistenten — daraus werden Positionen. */
+const POSTEN_VORSCHLAEGE = [
+  { name:"Miete",                 tags:["Wohnen","Fixkosten","Notwendig"], prio:"fix" },
+  { name:"Nebenkosten",           tags:["Wohnen","Fixkosten"],             prio:"fix" },
+  { name:"Strom",                 tags:["Wohnen","Fixkosten"],             prio:"fix" },
+  { name:"Heizung",               tags:["Wohnen","Fixkosten"],             prio:"fix" },
+  { name:"Internet & Telefon",    tags:["Fixkosten"],                      prio:"fix" },
+  { name:"Mobilfunk",             tags:["Fixkosten","Kündbar"],            prio:"fix" },
+  { name:"Rundfunkbeitrag",       tags:["Fixkosten"],                      prio:"fix" },
+  { name:"Lebensmittel",          tags:["Variabel","Notwendig"],           prio:"variabel", bar:true },
+  { name:"Drogerie",              tags:["Variabel"],                       prio:"variabel", bar:true },
+  { name:"Haftpflichtversicherung",tags:["Versicherung","Jährlich fällig"],prio:"fix" },
+  { name:"Hausratversicherung",   tags:["Versicherung","Jährlich fällig"], prio:"fix" },
+  { name:"KFZ-Versicherung",      tags:["Auto","Versicherung"],            prio:"fix" },
+  { name:"Krankenversicherung",   tags:["Versicherung","Notwendig"],       prio:"fix" },
+  { name:"Berufsunfähigkeit",     tags:["Versicherung"],                   prio:"fix" },
+  { name:"Sprit",                 tags:["Auto","Variabel"],                prio:"variabel" },
+  { name:"KFZ-Steuer",            tags:["Auto","Jährlich fällig"],         prio:"fix" },
+  { name:"Auto Wartung",          tags:["Auto","Jährlich fällig"],         prio:"variabel" },
+  { name:"ÖPNV-Ticket",           tags:["Fixkosten"],                      prio:"fix" },
+  { name:"Kredit/Rate",           tags:["Fixkosten","Notwendig"],          prio:"fix" },
+  { name:"Streaming & Abos",      tags:["Abo","Kündbar","Luxus"],          prio:"luxus" },
+  { name:"Fitness",               tags:["Abo","Kündbar","Luxus"],          prio:"luxus" },
+  { name:"Kleidung",              tags:["Variabel"],                       prio:"variabel" },
+  { name:"Friseur",               tags:["Variabel"],                       prio:"variabel", bar:true },
+  { name:"Arzt & Medikamente",    tags:["Variabel","Notwendig"],           prio:"variabel" },
+  { name:"Haustier",              tags:["Variabel"],                       prio:"variabel" },
+  { name:"Kinderbetreuung",       tags:["Fixkosten","Notwendig"],          prio:"fix" },
+  { name:"Urlaub",                tags:["Jährlich fällig","Luxus"],        prio:"luxus" },
+  { name:"Geschenke",             tags:["Variabel"],                       prio:"variabel" },
+  /* Sparposten — bekommen automatisch das Spar-Tag */
+  { name:"Sparplan",              tags:["Sparen"],                         prio:"fix", sparen:true },
+  { name:"Notgroschen",           tags:["Sparen"],                         prio:"fix", sparen:true },
+  { name:"Altersvorsorge",        tags:["Sparen"],                         prio:"fix", sparen:true },
+  { name:"Rücklage Auto",         tags:["Sparen","Auto"],                  prio:"fix", sparen:true }
 ];
 
 const KONTO_VORSCHLAEGE = [
@@ -1288,9 +1342,6 @@ const KONTO_VORSCHLAEGE = [
   { name:"Girokonto",  typ:"giro" },
   { name:"Tagesgeld",  typ:"tagesgeld" }
 ];
-
-/* Kategorien, die als Sparen gelten — für die 50/30/20-Regel */
-const SPAR_KATEGORIEN = ["Sparen","Notgroschen","Altersvorsorge","Puffer","Depot","Rücklage"];
 
 /* ================================================================
    2. HILFSFUNKTIONEN
@@ -1496,7 +1547,14 @@ function klemmen(wert, min, max){ return Math.min(max, Math.max(min, wert)); }
    3. ZUSTAND — LADEN, SPEICHERN, MIGRIEREN
    ================================================================ */
 
-/** Ein frisches, leeres Profil. */
+/** Die Zahlungswege, die ein neues Profil mitbekommt. */
+function wegeNeu(){
+  return ZAHLUNGSWEG_VORLAGEN.map(v => ({
+    id: idNeu("zw"), name:v.name, icon:v.icon, kontotyp:v.kontotyp
+  }));
+}
+
+/** Ein frisches, leeres Profil. Das Spar-Tag ist immer dabei. */
 function profilNeu(name = "Aktuell"){
   return {
     id: idNeu("pr"),
@@ -1504,8 +1562,8 @@ function profilNeu(name = "Aktuell"){
     einnahmen: [],
     ausgaben: [],
     konten: [],
-    tags: [],
-    kategorien: []
+    tags: [ { ...SPAR_TAG } ],
+    zahlungswege: wegeNeu()
   };
 }
 
@@ -1521,8 +1579,12 @@ function zustandNeu(){
       theme: "auto",
       wochenstunden: 0,
       notgroschenZiel: 0,
-      notgroschenStand: 0,
-      tagesgeldZins: 0,
+      /* Wie viele Jahre die Spar-Hochrechnung zeigt. */
+      hochrechnungJahre: 10,
+      /* Angenommene Inflation in Prozent pro Jahr — für die Kaufkraft-Rechnung. */
+      inflation: 2,
+      /* Erhöht sich dein Sparbetrag jedes Jahr? (Prozent, z. B. durch Gehaltsplus) */
+      sparSteigerung: 0,
       letzteSicherung: null,
       sicherungsHinweisAus: null
     }
@@ -1542,12 +1604,27 @@ function P(){
     S.aktivesProfil = p.id;
   }
   // Sicherheitsnetz: fehlende Listen ergänzen, damit nirgends undefined auftaucht.
-  p.einnahmen  = Array.isArray(p.einnahmen)  ? p.einnahmen  : [];
-  p.ausgaben   = Array.isArray(p.ausgaben)   ? p.ausgaben   : [];
-  p.konten     = Array.isArray(p.konten)     ? p.konten     : [];
-  p.tags       = Array.isArray(p.tags)       ? p.tags       : [];
-  p.kategorien = Array.isArray(p.kategorien) ? p.kategorien : [];
+  p.einnahmen    = Array.isArray(p.einnahmen)    ? p.einnahmen    : [];
+  p.ausgaben     = Array.isArray(p.ausgaben)     ? p.ausgaben     : [];
+  p.konten       = Array.isArray(p.konten)       ? p.konten       : [];
+  p.tags         = Array.isArray(p.tags)         ? p.tags         : [];
+  p.zahlungswege = Array.isArray(p.zahlungswege) && p.zahlungswege.length ? p.zahlungswege : wegeNeu();
+  // Das Spar-Tag ist Pflicht und steht immer an erster Stelle.
+  if(!p.tags.some(t => t.id === SPAR_TAG_ID)) p.tags.unshift({ ...SPAR_TAG });
   return p;
+}
+
+/** Der Zahlungsweg einer Position — mit Rückfall, falls er gelöscht wurde. */
+function wegFuer(pos){
+  const p = P();
+  return p.zahlungswege.find(w => w.id === pos.zahlungsweg)
+      || p.zahlungswege[0]
+      || { id:"", name:"—", icon:"ic-bank", kontotyp:"giro" };
+}
+
+/** Ist diese Position Sparen statt Ausgabe? */
+function istSparen(pos){
+  return Array.isArray(pos.tags) && pos.tags.includes(SPAR_TAG_ID);
 }
 
 /** Prüft und repariert einen geladenen Zustand, ohne je abzustürzen. */
@@ -1563,8 +1640,9 @@ function zustandSaeubern(roh){
   z.einstellungen.theme = ["hell","dunkel","auto"].includes(e.theme) ? e.theme : "auto";
   z.einstellungen.wochenstunden = Number.isFinite(+e.wochenstunden) ? klemmen(+e.wochenstunden,0,168) : 0;
   z.einstellungen.notgroschenZiel = Number.isFinite(+e.notgroschenZiel) ? Math.max(0, Math.round(+e.notgroschenZiel)) : 0;
-  z.einstellungen.notgroschenStand = Number.isFinite(+e.notgroschenStand) ? Math.max(0, Math.round(+e.notgroschenStand)) : 0;
-  z.einstellungen.tagesgeldZins = Number.isFinite(+e.tagesgeldZins) ? klemmen(+e.tagesgeldZins,0,20) : 0;
+  z.einstellungen.hochrechnungJahre = Number.isFinite(+e.hochrechnungJahre) ? klemmen(Math.round(+e.hochrechnungJahre),1,40) : 10;
+  z.einstellungen.inflation = Number.isFinite(+e.inflation) ? klemmen(+e.inflation,0,20) : 2;
+  z.einstellungen.sparSteigerung = Number.isFinite(+e.sparSteigerung) ? klemmen(+e.sparSteigerung,0,20) : 0;
   z.einstellungen.letzteSicherung = typeof e.letzteSicherung === "string" ? e.letzteSicherung : null;
   z.einstellungen.sicherungsHinweisAus = typeof e.sicherungsHinweisAus === "string" ? e.sicherungsHinweisAus : null;
 
@@ -1593,19 +1671,43 @@ function prSaeubern(roh){
 
   p.tags = (Array.isArray(roh.tags) ? roh.tags : []).map(t => {
     if(!t || typeof t !== "object") return null;
+    const id = typeof t.id === "string" && t.id ? t.id : idNeu("tg");
+    if(id === SPAR_TAG_ID) return { ...SPAR_TAG };
     return {
-      id: typeof t.id === "string" && t.id ? t.id : idNeu("tg"),
+      id,
       name: (typeof t.name === "string" ? t.name.trim() : "").slice(0,40) || "Tag",
       farbe: PALETTE.includes(t.farbe) ? t.farbe : "p1"
     };
   }).filter(Boolean);
+  // Das Spar-Tag ist nicht verhandelbar.
+  if(!p.tags.some(t => t.id === SPAR_TAG_ID)) p.tags.unshift({ ...SPAR_TAG });
 
-  p.kategorien = (Array.isArray(roh.kategorien) ? roh.kategorien : [])
-    .map(k => typeof k === "string" ? k.trim().slice(0,50) : "")
-    .filter(k => k.length > 0);
+  /* Zahlungswege: entweder schon als Liste vorhanden (Schema 2) oder aus den
+     festen Werten der ersten Fassung übernommen. */
+  const wegeRoh = Array.isArray(roh.zahlungswege) ? roh.zahlungswege : [];
+  p.zahlungswege = wegeRoh.map(w => {
+    if(!w || typeof w !== "object") return null;
+    return {
+      id: typeof w.id === "string" && w.id ? w.id : idNeu("zw"),
+      name: (typeof w.name === "string" ? w.name.trim() : "").slice(0,40) || "Zahlungsweg",
+      icon: WEG_ICONS.includes(w.icon) ? w.icon : "ic-bank",
+      kontotyp: KONTOTYPEN[w.kontotyp] ? w.kontotyp : "giro"
+    };
+  }).filter(Boolean);
+  if(p.zahlungswege.length === 0) p.zahlungswege = wegeNeu();
+
+  /* Übersetzungstabelle für Daten aus der ersten Fassung, in der der
+     Zahlungsweg noch ein fester Text war. */
+  const altWeg = {};
+  [["bar","Bar"],["giro","Überweisung"],["lastschrift","Lastschrift"],
+   ["tagesgeld","Tagesgeld"],["kreditkarte","Kreditkarte"]].forEach(([alt,neu]) => {
+    const treffer = p.zahlungswege.find(w => w.name.toLowerCase() === neu.toLowerCase());
+    if(treffer) altWeg[alt] = treffer.id;
+  });
 
   const kontoIds = new Set(p.konten.map(k => k.id));
   const tagIds = new Set(p.tags.map(t => t.id));
+  const wegIds = new Set(p.zahlungswege.map(w => w.id));
 
   p.einnahmen = (Array.isArray(roh.einnahmen) ? roh.einnahmen : []).map(x => {
     if(!x || typeof x !== "object") return null;
@@ -1625,26 +1727,45 @@ function prSaeubern(roh){
   p.ausgaben = (Array.isArray(roh.ausgaben) ? roh.ausgaben : []).map(x => {
     if(!x || typeof x !== "object") return null;
     const tags = (Array.isArray(x.tags) ? x.tags : []).filter(t => tagIds.has(t));
+
+    /* Zahlungsweg: neue ID, sonst aus der ersten Fassung übersetzen. */
+    let weg = null;
+    if(wegIds.has(x.zahlungsweg)) weg = x.zahlungsweg;
+    else if(altWeg[x.zahlungsweg]) weg = altWeg[x.zahlungsweg];
+    else weg = p.zahlungswege[0].id;
+
+    /* Die Kategorie gibt es nicht mehr. Damit nichts verlorengeht, wandert
+       sie in die Notiz — aber nur, wenn sie dort noch nicht steht. */
+    let notiz = (typeof x.notiz === "string" ? x.notiz : "");
+    const alteKategorie = typeof x.kategorie === "string" ? x.kategorie.trim() : "";
+    const name = (typeof x.name === "string" ? x.name.trim() : "").slice(0,80) || "Position";
+    if(alteKategorie && alteKategorie !== "Sonstiges"
+       && !name.toLowerCase().includes(alteKategorie.toLowerCase())
+       && !notiz.toLowerCase().includes(alteKategorie.toLowerCase())){
+      notiz = (notiz ? notiz + " · " : "") + alteKategorie;
+    }
+
     return {
       id: typeof x.id === "string" && x.id ? x.id : idNeu("au"),
-      name: (typeof x.name === "string" ? x.name.trim() : "").slice(0,80) || "Position",
+      name,
       betragCent: Number.isFinite(+x.betragCent) ? Math.max(0, Math.round(+x.betragCent)) : 0,
       intervall: INTERVALLE[x.intervall] ? x.intervall : "monatlich",
-      kategorie: (typeof x.kategorie === "string" ? x.kategorie.trim() : "").slice(0,50) || "Sonstiges",
-      zahlungsweg: ZAHLUNGSWEGE[x.zahlungsweg] ? x.zahlungsweg : "giro",
+      zahlungsweg: weg,
       kontoId: kontoIds.has(x.kontoId) ? x.kontoId : null,
       faelligTag: Number.isFinite(+x.faelligTag) ? klemmen(Math.round(+x.faelligTag),1,31) : 1,
       startMonat: Number.isFinite(+x.startMonat) ? klemmen(Math.round(+x.startMonat),1,12) : 1,
       tags,
       prioritaet: PRIORITAETEN[x.prioritaet] ? x.prioritaet : "variabel",
       aktiv: x.aktiv !== false,
-      notiz: (typeof x.notiz === "string" ? x.notiz : "").slice(0,400)
+      notiz: notiz.slice(0,400),
+      /* Nur für Sparposten: Zinssatz in Prozent pro Jahr und der Betrag,
+         der heute schon zurückgelegt ist. Beides pflegt der Nutzer selbst —
+         Lohnwerk schreibt Bestände niemals von allein fort. */
+      zinsProzent: Number.isFinite(+x.zinsProzent) ? klemmen(+x.zinsProzent,0,30) : 0,
+      bestandCent: Number.isFinite(+x.bestandCent) ? Math.max(0, Math.round(+x.bestandCent)) : 0,
+      zielCent: Number.isFinite(+x.zielCent) ? Math.max(0, Math.round(+x.zielCent)) : 0
     };
   }).filter(Boolean);
-
-  // Alle benutzten Kategorien müssen auch in der Kategorienliste stehen.
-  const katSet = new Set(p.kategorien);
-  p.ausgaben.forEach(a => { if(!katSet.has(a.kategorie)){ katSet.add(a.kategorie); p.kategorien.push(a.kategorie); } });
 
   return p;
 }
@@ -1726,34 +1847,56 @@ function euroZ(jahresWert){
 
 /** Aktive Positionen des aktuellen Profils. */
 function aktiveEinnahmen(){ return P().einnahmen.filter(x => x.aktiv !== false); }
-function aktiveAusgaben(){ return P().ausgaben.filter(x => x.aktiv !== false); }
+/** Alle aktiven Positionen — Ausgaben und Sparposten zusammen. */
+function aktivePosten(){ return P().ausgaben.filter(x => x.aktiv !== false); }
+/** Nur echte Ausgaben — Geld, das weg ist. */
+function aktiveAusgaben(){ return aktivePosten().filter(x => !istSparen(x)); }
+/** Nur Sparposten — Geld, das dir erhalten bleibt. */
+function aktiveSparposten(){ return aktivePosten().filter(istSparen); }
 
 function summeJahr(liste){
   return liste.reduce((s,x) => s + jahresCent(x), 0);
 }
 
 /**
- * Die zentrale Kennzahl-Berechnung. Optional mit einem "Was wäre wenn"-Szenario:
+ * Die zentrale Kennzahl-Berechnung.
+ *
+ * Wichtige Regel: Sparen ist keine Ausgabe. Was du zur Seite legst, ist
+ * weiterhin dein Geld. Deshalb gilt
+ *      Überschuss = Einnahmen − Ausgaben
+ * und der Sparplan wird davon nur noch aufgeteilt:
+ *      Überschuss = fester Sparplan + frei verfügbar
+ * Alles, was am Monatsende übrig ist, zählt ebenfalls als Sparen.
+ *
+ * Optional mit einem "Was wäre wenn"-Szenario:
  *   { einnahmenFaktor, ausgabenFaktor, ausgeblendet:Set }
  */
 function kennzahlen(szenario = null){
   const ein = aktiveEinnahmen();
-  let aus = aktiveAusgaben();
+  let posten = aktivePosten();
   if(szenario && szenario.ausgeblendet && szenario.ausgeblendet.size > 0){
-    aus = aus.filter(a => !szenario.ausgeblendet.has(a.id));
+    posten = posten.filter(a => !szenario.ausgeblendet.has(a.id));
   }
   const fE = szenario ? szenario.einnahmenFaktor : 1;
   const fA = szenario ? szenario.ausgabenFaktor : 1;
 
+  const aus   = posten.filter(a => !istSparen(a));
+  const spar  = posten.filter(istSparen);
+
   const einnahmenJahr = Math.round(summeJahr(ein) * fE);
   const ausgabenJahr  = Math.round(summeJahr(aus) * fA);
+  const sparplanJahr  = Math.round(summeJahr(spar) * fA);
+
   const ueberschussJahr = einnahmenJahr - ausgabenJahr;
+  const freiJahr = ueberschussJahr - sparplanJahr;   // kann negativ werden
   const sparquote = einnahmenJahr > 0 ? (ueberschussJahr / einnahmenJahr * 100) : null;
 
-  // Bar-Bedarf: alles mit Zahlungsweg "Bar".
-  const barJahr = Math.round(aus.filter(a => a.zahlungsweg === "bar").reduce((s,a)=>s+jahresCent(a),0) * fA);
+  // Bar-Bedarf: alle Posten, deren Zahlungsweg auf ein Bargeldkonto zeigt.
+  const barJahr = Math.round(posten
+    .filter(a => wegFuer(a).kontotyp === "bargeld")
+    .reduce((s,a)=>s+jahresCent(a),0) * fA);
 
-  // Fixkosten und variable Kosten
+  // Fixkosten und variable Kosten — Sparposten bleiben außen vor.
   const fixJahr = Math.round(aus.filter(a => a.prioritaet === "fix").reduce((s,a)=>s+jahresCent(a),0) * fA);
   const varJahr = Math.round(aus.filter(a => a.prioritaet === "variabel").reduce((s,a)=>s+jahresCent(a),0) * fA);
   const luxJahr = Math.round(aus.filter(a => a.prioritaet === "luxus").reduce((s,a)=>s+jahresCent(a),0) * fA);
@@ -1764,20 +1907,20 @@ function kennzahlen(szenario = null){
     .reduce((s,a)=>s+jahresCent(a),0) * fA);
 
   return {
-    einnahmenJahr, ausgabenJahr, ueberschussJahr, sparquote,
+    einnahmenJahr, ausgabenJahr, sparplanJahr, ueberschussJahr, freiJahr, sparquote,
     barJahr, fixJahr, varJahr, luxJahr, ruecklageJahr,
-    anzahlEinnahmen: ein.length, anzahlAusgaben: aus.length
+    anzahlEinnahmen: ein.length, anzahlAusgaben: aus.length, anzahlSpar: spar.length
   };
 }
 
-/** Ordnet eine Ausgabe einem Konto zu — direkt oder über den Zahlungsweg. */
+/** Ordnet eine Position einem Konto zu — direkt oder über den Zahlungsweg. */
 function kontoFuer(pos){
   const p = P();
   if(pos.kontoId){
     const k = p.konten.find(k => k.id === pos.kontoId);
     if(k) return k;
   }
-  const wunschTyp = ZAHLUNGSWEGE[pos.zahlungsweg]?.kontotyp;
+  const wunschTyp = wegFuer(pos).kontotyp;
   if(wunschTyp){
     const k = p.konten.find(k => k.typ === wunschTyp);
     if(k) return k;
@@ -1785,12 +1928,20 @@ function kontoFuer(pos){
   return null;
 }
 
-/** Summen je Zahlungsweg (Jahres-Cent). */
+/** Summen je Zahlungsweg (Jahres-Cent), absteigend. */
 function summenNachZahlungsweg(){
-  const map = {};
-  Object.keys(ZAHLUNGSWEGE).forEach(w => map[w] = 0);
-  aktiveAusgaben().forEach(a => { map[a.zahlungsweg] = (map[a.zahlungsweg]||0) + jahresCent(a); });
-  return map;
+  const p = P();
+  const map = new Map();
+  p.zahlungswege.forEach(w => map.set(w.id, { weg:w, jahr:0, sparJahr:0, anzahl:0 }));
+  aktivePosten().forEach(a => {
+    const w = wegFuer(a);
+    if(!map.has(w.id)) return;
+    const e = map.get(w.id);
+    e.jahr += jahresCent(a);
+    if(istSparen(a)) e.sparJahr += jahresCent(a);
+    e.anzahl++;
+  });
+  return Array.from(map.values()).sort((a,b) => b.jahr - a.jahr);
 }
 
 /** Summen je Konto (Jahres-Cent), inklusive "ohne Konto". */
@@ -1799,7 +1950,7 @@ function summenNachKonto(){
   const map = new Map();
   p.konten.forEach(k => map.set(k.id, { konto:k, jahr:0, anzahl:0 }));
   let ohne = { konto:null, jahr:0, anzahl:0 };
-  aktiveAusgaben().forEach(a => {
+  aktivePosten().forEach(a => {
     const k = kontoFuer(a);
     if(k && map.has(k.id)){
       const e = map.get(k.id);
@@ -1814,15 +1965,21 @@ function summenNachKonto(){
   return liste;
 }
 
-/** Summen je Tag (Jahres-Cent). */
-function summenNachTag(){
+/**
+ * Summen je Tag (Jahres-Cent).
+ * Achtung: Eine Position kann mehrere Tags haben, deshalb ergibt die Summe
+ * aller Tags mehr als die Gesamtausgaben. Die Oberfläche sagt das dazu.
+ */
+function summenNachTag(nurAusgaben = true){
   const p = P();
   const map = new Map();
   p.tags.forEach(t => map.set(t.id, { tag:t, jahr:0, anzahl:0 }));
   let ohne = 0, ohneAnzahl = 0;
-  aktiveAusgaben().forEach(a => {
-    if(!a.tags || a.tags.length === 0){ ohne += jahresCent(a); ohneAnzahl++; return; }
-    a.tags.forEach(tid => {
+  const quelle = nurAusgaben ? aktiveAusgaben() : aktivePosten();
+  quelle.forEach(a => {
+    const eigene = (a.tags||[]).filter(t => t !== SPAR_TAG_ID);
+    if(eigene.length === 0){ ohne += jahresCent(a); ohneAnzahl++; }
+    (a.tags||[]).forEach(tid => {
       if(map.has(tid)){ const e = map.get(tid); e.jahr += jahresCent(a); e.anzahl++; }
     });
   });
@@ -1831,16 +1988,151 @@ function summenNachTag(){
   return { liste, ohneJahr:ohne, ohneAnzahl };
 }
 
-/** Summen je Kategorie (Jahres-Cent), absteigend. */
-function summenNachKategorie(){
+/**
+ * Ordnet jede Ausgabe genau EINEM Tag zu — dem ersten, den sie trägt.
+ * Damit ergeben Donut und Rangliste in Summe wieder exakt die Ausgaben.
+ */
+function summenNachHauptTag(){
+  const p = P();
   const map = new Map();
+  let ohne = { name:"Ohne Tag", jahr:0, anzahl:0, farbe:"var(--text-3)" };
   aktiveAusgaben().forEach(a => {
-    const k = a.kategorie || "Sonstiges";
-    if(!map.has(k)) map.set(k, { name:k, jahr:0, anzahl:0 });
-    const e = map.get(k);
+    const erstes = (a.tags||[]).find(t => t !== SPAR_TAG_ID);
+    const tag = erstes ? p.tags.find(t => t.id === erstes) : null;
+    if(!tag){ ohne.jahr += jahresCent(a); ohne.anzahl++; return; }
+    if(!map.has(tag.id)) map.set(tag.id, { name:tag.name, jahr:0, anzahl:0, farbe:tagFarbe(tag), tagId:tag.id });
+    const e = map.get(tag.id);
     e.jahr += jahresCent(a); e.anzahl++;
   });
-  return Array.from(map.values()).sort((a,b) => b.jahr - a.jahr);
+  const liste = Array.from(map.values()).sort((a,b) => b.jahr - a.jahr);
+  if(ohne.anzahl > 0) liste.push(ohne);
+  return liste;
+}
+
+/* ----------------------------------------------------------------
+   SPAREN — der eigene Rechenbereich
+
+   Grundsatz: Lohnwerk schreibt niemals von allein Bestände fort.
+   Was auf deinen Konten liegt, trägst nur du ein. Alle Zahlen hier
+   sind Prognosen mit klarer Beschriftung, keine Kontostände.
+   ---------------------------------------------------------------- */
+
+/** Alle Sparposten mit ihren Kennzahlen, größte zuerst. */
+function sparUebersicht(){
+  const posten = aktiveSparposten().map(a => ({
+    pos: a,
+    jahr: jahresCent(a),
+    monat: jahresCent(a) / 12,
+    zins: Number.isFinite(a.zinsProzent) ? a.zinsProzent : 0,
+    bestand: Number.isFinite(a.bestandCent) ? a.bestandCent : 0,
+    ziel: Number.isFinite(a.zielCent) ? a.zielCent : 0
+  })).sort((a,b) => b.jahr - a.jahr);
+
+  const sparplanJahr = posten.reduce((s,x) => s + x.jahr, 0);
+  const bestandGesamt = posten.reduce((s,x) => s + x.bestand, 0);
+  const k = kennzahlen();
+  /* Der Mischzins: nach Sparbetrag gewichtet. Ohne Beiträge nach Bestand. */
+  const basis = sparplanJahr > 0 ? sparplanJahr : bestandGesamt;
+  const mischZins = basis > 0
+    ? posten.reduce((s,x) => s + x.zins * ((sparplanJahr > 0 ? x.jahr : x.bestand) / basis), 0)
+    : 0;
+
+  return {
+    posten, sparplanJahr, bestandGesamt, mischZins,
+    freiJahr: k.freiJahr,
+    gesamtSparenJahr: k.ueberschussJahr,   // Sparplan + was übrig bleibt
+    sparquote: k.sparquote
+  };
+}
+
+/**
+ * Entwicklung eines Sparpostens über N Jahre.
+ * Liefert je Jahr: eingezahlt, Zinsen, Endwert und Kaufkraft in heutigem Geld.
+ *
+ * @param startCent   was heute schon da ist
+ * @param proJahrCent was jährlich dazukommt
+ * @param zinsProzent Zinssatz pro Jahr
+ * @param jahre       Laufzeit
+ * @param inflation   angenommene Geldentwertung pro Jahr
+ * @param steigerung  jährliche Erhöhung des Sparbetrags
+ */
+function sparVerlauf(startCent, proJahrCent, zinsProzent, jahre, inflation = 0, steigerung = 0){
+  const r = (Number.isFinite(zinsProzent) ? zinsProzent : 0) / 100;
+  const i = (Number.isFinite(inflation) ? inflation : 0) / 100;
+  const g = (Number.isFinite(steigerung) ? steigerung : 0) / 100;
+  const reihe = [];
+  let wert = Math.max(0, startCent || 0);
+  let eingezahlt = wert;
+  let rate = Math.max(0, proJahrCent || 0);
+
+  reihe.push({ jahr:0, wert, eingezahlt, zinsen:0, kaufkraft:wert });
+  for(let j = 1; j <= jahre; j++){
+    // Monatliche Einzahlung, monatlich verzinst — das trifft die Realität besser.
+    const rm = r / 12;
+    const monatsRate = rate / 12;
+    for(let m = 0; m < 12; m++){
+      wert = wert * (1 + rm) + monatsRate;
+    }
+    eingezahlt += rate;
+    const kaufkraft = i > 0 ? wert / Math.pow(1 + i, j) : wert;
+    reihe.push({
+      jahr: j,
+      wert: Math.round(wert),
+      eingezahlt: Math.round(eingezahlt),
+      zinsen: Math.round(wert - eingezahlt),
+      kaufkraft: Math.round(kaufkraft)
+    });
+    rate = rate * (1 + g);
+  }
+  return reihe;
+}
+
+/**
+ * Der Gesamtverlauf über alle Sparposten — jeder mit seinem eigenen Zinssatz.
+ * Optional zählt der frei verfügbare Rest mit (er wird ja auch gespart).
+ */
+function sparVerlaufGesamt(jahre, mitFreiemRest = true){
+  const u = sparUebersicht();
+  const inf = S.einstellungen.inflation || 0;
+  const stg = S.einstellungen.sparSteigerung || 0;
+  const gesamt = [];
+  for(let j = 0; j <= jahre; j++) gesamt.push({ jahr:j, wert:0, eingezahlt:0, zinsen:0, kaufkraft:0 });
+
+  u.posten.forEach(x => {
+    const reihe = sparVerlauf(x.bestand, x.jahr, x.zins, jahre, inf, stg);
+    reihe.forEach((r,idx) => {
+      gesamt[idx].wert += r.wert;
+      gesamt[idx].eingezahlt += r.eingezahlt;
+      gesamt[idx].zinsen += r.zinsen;
+      gesamt[idx].kaufkraft += r.kaufkraft;
+    });
+  });
+
+  /* Was am Monatsende übrig bleibt, landet ohne Zinsannahme auf der Seite —
+     unverzinst, weil unklar ist, wo es liegt. Ehrlicher als zu raten. */
+  if(mitFreiemRest && u.freiJahr > 0){
+    const reihe = sparVerlauf(0, u.freiJahr, 0, jahre, inf, stg);
+    reihe.forEach((r,idx) => {
+      gesamt[idx].wert += r.wert;
+      gesamt[idx].eingezahlt += r.eingezahlt;
+      gesamt[idx].kaufkraft += r.kaufkraft;
+    });
+  }
+  return gesamt;
+}
+
+/** Wie lange dauert es, bis ein Sparziel erreicht ist? Monate oder null. */
+function monateBisZiel(startCent, proMonatCent, zielCent, zinsProzent){
+  if(!(zielCent > 0)) return null;
+  if(startCent >= zielCent) return 0;
+  if(!(proMonatCent > 0)) return null;
+  const rm = (zinsProzent || 0) / 100 / 12;
+  let wert = startCent;
+  for(let m = 1; m <= 1200; m++){          // höchstens 100 Jahre
+    wert = wert * (1 + rm) + proMonatCent;
+    if(wert >= zielCent) return m;
+  }
+  return null;
 }
 
 /**
@@ -1920,22 +2212,37 @@ function naechsteAbbuchungen(anzahl = 5){
   return treffer.slice(0, anzahl);
 }
 
-/** Der Überweisungsplan: was muss vom Gehaltseingang wohin. */
+/**
+ * Der Monatsanfang-Plan: Was muss nach dem Gehaltseingang wohin?
+ * Genau das, was der Nutzer am 1. wissen will — gruppiert nach Zahlungsweg,
+ * getrennt in "geht weg" und "bleibt dein Geld".
+ */
 function ueberweisungsplan(){
-  const wege = summenNachZahlungsweg();
-  const eintraege = [];
-  const barJahr = wege.bar || 0;
-  const giroJahr = (wege.giro||0) + (wege.lastschrift||0);
-  const tgJahr = wege.tagesgeld || 0;
-  const kkJahr = wege.kreditkarte || 0;
   const k = kennzahlen();
+  const eintraege = [];
 
-  if(giroJahr > 0) eintraege.push({ text:"auf dem Girokonto lassen", jahr:giroJahr, icon:"ic-bank" });
-  if(barJahr > 0)  eintraege.push({ text:"abheben (Bargeld)", jahr:barJahr, icon:"ic-bar" });
-  if(tgJahr > 0)   eintraege.push({ text:"aufs Tagesgeld überweisen", jahr:tgJahr, icon:"ic-sparen" });
-  if(kkJahr > 0)   eintraege.push({ text:"für die Kreditkarte bereithalten", jahr:kkJahr, icon:"ic-karte" });
-  if(k.ruecklageJahr > 0) eintraege.push({ text:"Rücklage für Jahresrechnungen", jahr:k.ruecklageJahr, icon:"ic-kalender", hinweis:true });
-  return { eintraege, ueberschussJahr: k.ueberschussJahr };
+  summenNachZahlungsweg().filter(w => w.jahr > 0).forEach(w => {
+    const ausgabenTeil = w.jahr - w.sparJahr;
+    const typ = w.weg.kontotyp;
+    const verb = typ === "bargeld" ? "abheben"
+               : typ === "giro" ? "auf dem Girokonto lassen"
+               : typ === "kreditkarte" ? "für die Kreditkarte bereithalten"
+               : "überweisen";
+    if(ausgabenTeil > 0){
+      eintraege.push({ name:w.weg.name, text:verb, jahr:ausgabenTeil, icon:w.weg.icon, sparen:false });
+    }
+    if(w.sparJahr > 0){
+      eintraege.push({ name:w.weg.name, text:"zur Seite legen", jahr:w.sparJahr, icon:"ic-sparen", sparen:true });
+    }
+  });
+
+  return {
+    eintraege,
+    ruecklageJahr: k.ruecklageJahr,
+    freiJahr: k.freiJahr,
+    einnahmenJahr: k.einnahmenJahr,
+    sparplanJahr: k.sparplanJahr
+  };
 }
 
 /** Fixkosten für X Monate — Grundlage des Notgroschens. */
@@ -1946,20 +2253,16 @@ function notgroschenBedarf(monate = 3){
 
 /** 50/30/20: Bedarf, Wünsche, Sparen — jeweils Jahres-Cent. */
 function regel503020(){
-  const aus = aktiveAusgaben();
-  let bedarf = 0, wuensche = 0, sparen = 0;
-  aus.forEach(a => {
+  let bedarf = 0, wuensche = 0;
+  aktiveAusgaben().forEach(a => {
     const j = jahresCent(a);
-    const istSparen = SPAR_KATEGORIEN.some(s => (a.kategorie||"").toLowerCase().includes(s.toLowerCase()));
-    if(istSparen) sparen += j;
-    else if(a.prioritaet === "luxus") wuensche += j;
+    if(a.prioritaet === "luxus") wuensche += j;
     else bedarf += j;
   });
   const k = kennzahlen();
-  // Ein positiver Überschuss zählt als Sparen, ein Defizit bleibt außen vor.
-  if(k.ueberschussJahr > 0) sparen += k.ueberschussJahr;
-  const basis = k.einnahmenJahr;
-  return { bedarf, wuensche, sparen, basis };
+  // Sparen ist alles, was übrig bleibt — Sparplan und freier Rest zusammen.
+  const sparen = Math.max(0, k.ueberschussJahr);
+  return { bedarf, wuensche, sparen, basis:k.einnahmenJahr };
 }
 
 /** Kündigungs-Kandidaten: Tag "Kündbar" oder Priorität "Luxus". */
@@ -1989,16 +2292,44 @@ function arbeitsstunden(jahresBetragCent){
   return jahresBetragCent / lohn;
 }
 
-/** Hochrechnung des Ersparten über N Monate, optional mit Zins. */
+/**
+ * Hochrechnung über N Monate: Was ist dann da, und was ist es real noch wert?
+ * Rechnet jeden Sparposten mit seinem eigenen Zinssatz.
+ */
 function hochrechnung(monate){
-  const k = kennzahlen();
-  const proMonat = k.ueberschussJahr / 12;
-  const zinsJahr = S.einstellungen.tagesgeldZins || 0;
-  if(zinsJahr <= 0) return Math.round(proMonat * monate);
-  const r = zinsJahr / 100 / 12;
-  // Rentenendwert bei nachschüssiger Einzahlung
-  const endwert = proMonat * ((Math.pow(1+r, monate) - 1) / r);
-  return Math.round(endwert);
+  const jahre = monate / 12;
+  const reihe = sparVerlaufGesamt(Math.ceil(jahre), true);
+  const ganz = Math.floor(jahre);
+  const a = reihe[Math.min(ganz, reihe.length-1)];
+  const b = reihe[Math.min(ganz+1, reihe.length-1)];
+  const anteil = jahre - ganz;
+  const misch = (x,y) => Math.round(x + (y - x) * anteil);
+  return {
+    wert:       misch(a.wert, b.wert),
+    eingezahlt: misch(a.eingezahlt, b.eingezahlt),
+    zinsen:     misch(a.zinsen, b.zinsen),
+    kaufkraft:  misch(a.kaufkraft, b.kaufkraft)
+  };
+}
+
+/** Die kurze Beschreibung unter dem Namen einer Position. */
+function postenUnterzeile(a){
+  const p = P();
+  const iv = INTERVALLE[a.intervall];
+  const teile = [iv.name];
+  if(iv.kalender && a.intervall !== "einmalig" && a.intervall !== "monatlich"){
+    teile.push(`${a.faelligTag}. ab ${MONATE_KURZ[(a.startMonat||1)-1]}`);
+  } else if(a.intervall === "monatlich"){
+    teile.push(`am ${a.faelligTag}.`);
+  } else if(a.intervall === "einmalig"){
+    teile.push(`im ${MONATE_KURZ[(a.startMonat||1)-1]}`);
+  }
+  teile.push(wegFuer(a).name);
+  if(istSparen(a) && a.zinsProzent > 0){
+    teile.push(nfProzent.format(a.zinsProzent).replace(",0","") + " % Zinsen");
+  }
+  if(a.aktiv === false) teile.push("pausiert");
+  return teile.join(" · ");
 }
 
 /** Die Farbe eines Tags als CSS-Wert. */
@@ -2018,7 +2349,10 @@ function palettenFarbe(index){
 const UI = {
   suche: "",
   filterTags: new Set(),
-  gruppierung: "kategorie",   // kategorie | tag | konto | faelligkeit | keine
+  gruppierung: "tag",         // tag | art | konto | zahlungsweg | prioritaet | faelligkeit | keine
+  auswertungTab: "ausgaben",  // welcher Reiter in der Auswertung offen ist
+  neuAlsSparen: false,        // wird der nächste neue Posten gleich als Sparen angelegt?
+  sparJahre: null,            // Zeitraum-Wahl im Spar-Diagramm (null = Einstellung)
   sortierung: "betrag",       // betrag | name | faelligkeit
   auswahl: new Set(),
   auswahlModus: false,
@@ -2334,6 +2668,44 @@ function zeichneUebersicht(){
   ));
   if(UI.erstesZeichnen) zahlHochzaehlen(heroWert, imZeitraum(k.ueberschussJahr));
 
+  /* Wie sich der Überschuss aufteilt — der Punkt, den der Nutzer sehen will. */
+  if(k.ueberschussJahr > 0){
+    const anteilPlan = klemmen(k.sparplanJahr / k.ueberschussJahr * 100, 0, 100);
+    wurzel.appendChild(el("div",{ class:"karte" },
+      el("div",{ class:"karte-kopf" },
+        el("h2",{ text:"Davon" }),
+        el("button",{ class:"knopf leise klein", type:"button", text:"Zum Sparen",
+          onclick:() => { UI.auswertungTab = "sparen"; navigieren("auswertung"); } })
+      ),
+      el("div",{ class:"regel-balken", style:"height:14px;margin-top:0" },
+        k.sparplanJahr > 0 ? el("div",{ style:`flex:${k.sparplanJahr};background:var(--gruen)`, "aria-hidden":"true" }) : null,
+        k.freiJahr > 0 ? el("div",{ style:`flex:${k.freiJahr};background:var(--p2);opacity:.45`, "aria-hidden":"true" }) : null
+      ),
+      el("div",{ class:"datenzeile", style:"border:0" },
+        el("span",{ class:"dz-name" },
+          el("span",{ style:"display:inline-flex;align-items:center;gap:8px" },
+            el("span",{ style:"width:8px;height:8px;border-radius:2px;background:var(--gruen);display:inline-block" }),
+            el("span",{ text:"Fester Sparplan" })),
+          el("span",{ class:"neben", text:`${k.anzahlSpar} ${plural(k.anzahlSpar,"Posten","Posten")} mit Spar-Tag` })
+        ),
+        el("span",{ class:"dz-wert", text:euroZ(k.sparplanJahr) })
+      ),
+      el("div",{ class:"datenzeile" },
+        el("span",{ class:"dz-name" },
+          el("span",{ style:"display:inline-flex;align-items:center;gap:8px" },
+            el("span",{ style:"width:8px;height:8px;border-radius:2px;background:var(--p2);opacity:.45;display:inline-block" }),
+            el("span",{ text:"Frei verfügbar" })),
+          el("span",{ class:"neben", text: k.freiJahr >= 0 ? "bleibt nach dem Sparplan übrig" : "dein Sparplan ist größer als der Überschuss" })
+        ),
+        el("span",{ class:"dz-wert " + (k.freiJahr < 0 ? "rot" : ""), text:euroZ(k.freiJahr) })
+      ),
+      el("p",{ class:"t-klein", style:"margin-top:12px;line-height:1.5",
+        text: k.freiJahr >= 0
+          ? `${Math.round(anteilPlan)} % deines Überschusses sind fest verplant. Der Rest ist Puffer — und was davon liegen bleibt, ist am Jahresende ebenfalls gespart.`
+          : "Dein Sparplan übersteigt den Überschuss. Entweder Ausgaben senken oder eine Sparrate zurücknehmen." })
+    ));
+  }
+
   /* Kennzahlen */
   wurzel.appendChild(el("div",{ class:"raster raster-2", style:"margin-bottom:12px" },
     kachel("Einnahmen", euroZ(k.einnahmenJahr), `${k.anzahlEinnahmen} ${plural(k.anzahlEinnahmen,"Quelle","Quellen")}`),
@@ -2356,19 +2728,19 @@ function zeichneUebersicht(){
     wurzel.appendChild(karte);
   }
 
-  /* Kategorien als Donut */
-  const kats = summenNachKategorie();
-  if(kats.length > 0){
+  /* Ausgaben nach Tag als Donut */
+  const nachTag = summenNachHauptTag();
+  if(nachTag.length > 0){
     const karte = el("div",{ class:"karte" },
       el("div",{ class:"karte-kopf" },
         el("h2",{ text:"Wohin es geht" }),
         el("button",{ class:"knopf leise klein", type:"button", text:"Alle ansehen",
-          onclick:() => navigieren("auswertung") })
+          onclick:() => { UI.auswertungTab = "ausgaben"; navigieren("auswertung"); } })
       )
     );
-    karte.appendChild(donutZeichnen(kats.slice(0,7).map((x,i) => ({
-      name:x.name, wert:x.jahr, farbe:palettenFarbe(i)
-    })), kats.length > 7 ? { name:"Übrige", wert:kats.slice(7).reduce((s,x)=>s+x.jahr,0), farbe:"var(--text-3)" } : null));
+    karte.appendChild(donutZeichnen(nachTag.slice(0,7).map((x,i) => ({
+      name:x.name, wert:x.jahr, farbe:x.farbe || palettenFarbe(i)
+    })), nachTag.length > 7 ? { name:"Übrige", wert:nachTag.slice(7).reduce((s,x)=>s+x.jahr,0), farbe:"var(--text-3)" } : null));
     wurzel.appendChild(karte);
   }
 
@@ -2389,7 +2761,7 @@ function zeichneUebersicht(){
           ),
           el("div",{ class:"zeile-haupt" },
             el("div",{ class:"zeile-name", text:n.pos.name }),
-            el("div",{ class:"zeile-unter", text:`${n.pos.kategorie} · ${ZAHLUNGSWEGE[n.pos.zahlungsweg].name}` })
+            el("div",{ class:"zeile-unter", text: postenUnterzeile(n.pos) })
           ),
           el("div",{ class:"zeile-rechts" },
             el("div",{ class:"zeile-betrag", text:euro(n.pos.betragCent) }),
@@ -2578,7 +2950,7 @@ function zeichneAusgaben(){
   steuerung.appendChild(el("select",{ class:"eingabe", style:"min-height:40px;font-size:14px;padding:8px 34px 8px 12px;flex:1;min-width:0",
     "aria-label":"Gruppierung",
     onchange:(ev) => { UI.gruppierung = ev.target.value; zeichneAusgabenListe(); } },
-    [["kategorie","Nach Kategorie"],["tag","Nach Tag"],["konto","Nach Konto"],["zahlungsweg","Nach Zahlungsweg"],["faelligkeit","Nach Fälligkeit"],["keine","Ohne Gruppen"]]
+    [["tag","Nach Tag"],["art","Sparen / Ausgabe"],["konto","Nach Konto"],["zahlungsweg","Nach Zahlungsweg"],["prioritaet","Nach Priorität"],["faelligkeit","Nach Fälligkeit"],["keine","Ohne Gruppen"]]
       .map(([w,t]) => el("option",{ value:w, selected: UI.gruppierung === w, text:t }))
   ));
   steuerung.appendChild(el("select",{ class:"eingabe", style:"min-height:40px;font-size:14px;padding:8px 34px 8px 12px;flex:1;min-width:0",
@@ -2609,7 +2981,8 @@ function gefilterteAusgaben(){
       if(!a.tags.some(t => UI.filterTags.has(t))) return false;
     }
     if(suchtext){
-      const heu = (a.name + " " + a.kategorie + " " + (a.notiz||"")).toLowerCase();
+      const tagNamen = (a.tags||[]).map(id => P().tags.find(t=>t.id===id)?.name || "").join(" ");
+      const heu = (a.name + " " + tagNamen + " " + wegFuer(a).name + " " + (a.notiz||"")).toLowerCase();
       if(!heu.includes(suchtext)) return false;
     }
     return true;
@@ -2626,16 +2999,30 @@ function zeichneAusgabenListe(){
 
   if(summeBox){
     summeBox.replaceChildren();
-    const summe = gefiltert.filter(a => a.aktiv !== false).reduce((s,a)=>s+jahresCent(a),0);
+    const aktiv = gefiltert.filter(a => a.aktiv !== false);
+    const ausgabenTeil = aktiv.filter(a => !istSparen(a)).reduce((s,a)=>s+jahresCent(a),0);
+    const sparTeil = aktiv.filter(istSparen).reduce((s,a)=>s+jahresCent(a),0);
     const istGefiltert = gefiltert.length !== p.ausgaben.length;
-    summeBox.appendChild(el("div",{ class:"karte eng", style:"display:flex;align-items:baseline;justify-content:space-between;gap:12px" },
-      el("div",{},
-        el("div",{ class:"t-kapitaelchen", text: istGefiltert ? "Auswahl "+zeitraumWort() : "Summe "+zeitraumWort() }),
-        el("div",{ class:"t-klein", style:"margin-top:2px",
-          text:`${gefiltert.length} von ${p.ausgaben.length} ${plural(p.ausgaben.length,"Position","Positionen")}` })
+    summeBox.appendChild(el("div",{ class:"karte eng" },
+      el("div",{ style:"display:flex;align-items:baseline;justify-content:space-between;gap:12px" },
+        el("div",{},
+          el("div",{ class:"t-kapitaelchen", text: istGefiltert ? "Auswahl "+zeitraumWort() : "Ausgaben "+zeitraumWort() }),
+          el("div",{ class:"t-klein", style:"margin-top:2px",
+            text:`${gefiltert.length} von ${p.ausgaben.length} ${plural(p.ausgaben.length,"Position","Positionen")}` })
+        ),
+        el("div",{ style:"font-size:24px;font-weight:640;letter-spacing:-.02em;font-variant-numeric:tabular-nums;white-space:nowrap",
+          text:euroZ(ausgabenTeil) })
       ),
-      el("div",{ style:"font-size:24px;font-weight:640;letter-spacing:-.02em;font-variant-numeric:tabular-nums;white-space:nowrap",
-        text:euroZ(summe) })
+      sparTeil > 0 ? el("div",{ style:"display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-top:10px;padding-top:10px;border-top:1px solid var(--linie)" },
+        el("span",{ class:"t-label" },
+          el("span",{ style:"display:inline-flex;align-items:center;gap:7px" },
+            el("span",{ style:"width:8px;height:8px;border-radius:2px;background:var(--gruen);display:inline-block" }),
+            el("span",{ text:"davon Sparen — keine echte Ausgabe" })
+          )
+        ),
+        el("span",{ class:"gruen", style:"font-size:16px;font-weight:640;font-variant-numeric:tabular-nums;white-space:nowrap",
+          text:euroZ(sparTeil) })
+      ) : null
     ));
   }
 
@@ -2663,8 +3050,9 @@ function zeichneAusgabenListe(){
   const gruppen = new Map();
   const gruppenSchluessel = (a) => {
     switch(UI.gruppierung){
-      case "kategorie": return a.kategorie || "Sonstiges";
-      case "zahlungsweg": return ZAHLUNGSWEGE[a.zahlungsweg]?.name || "Unbekannt";
+      case "art": return istSparen(a) ? "Sparen" : "Ausgaben";
+      case "prioritaet": return PRIORITAETEN[a.prioritaet]?.name || "Ohne";
+      case "zahlungsweg": return wegFuer(a).name;
       case "konto": { const k = kontoFuer(a); return k ? k.name : "Ohne Konto"; }
       case "faelligkeit": {
         const t = klemmen(a.faelligTag||1,1,31);
@@ -2675,8 +3063,9 @@ function zeichneAusgabenListe(){
         return "26. bis Monatsende";
       }
       case "tag": {
-        if(!a.tags || a.tags.length === 0) return "Ohne Tag";
-        const t = P().tags.find(t => t.id === a.tags[0]);
+        const erstes = (a.tags||[]).find(t => t !== SPAR_TAG_ID) || (a.tags||[])[0];
+        if(!erstes) return "Ohne Tag";
+        const t = P().tags.find(t => t.id === erstes);
         return t ? t.name : "Ohne Tag";
       }
       default: return "";
@@ -2719,18 +3108,10 @@ function zeichneAusgabenListe(){
 function ausgabenZeile(a){
   const p = P();
   const tags = (a.tags||[]).map(id => p.tags.find(t => t.id === id)).filter(Boolean);
-  const iv = INTERVALLE[a.intervall];
-  const teile = [iv.name];
-  if(iv.kalender && a.intervall !== "einmalig") teile.push(`am ${a.faelligTag}.`);
-  if(a.intervall === "einmalig") teile.push(`im ${MONATE_KURZ[(a.startMonat||1)-1]}`);
-  else if(iv.faktor < 12 && iv.kalender) teile.push(`ab ${MONATE_KURZ[(a.startMonat||1)-1]}`);
-  teile.push(ZAHLUNGSWEGE[a.zahlungsweg].name);
-  if(a.aktiv === false) teile.push("pausiert");
-
   return zeile({
     id: a.id,
     name: a.name,
-    unter: teile.join(" · "),
+    unter: postenUnterzeile(a),
     betragJahr: a.aktiv === false ? 0 : jahresCent(a),
     tags,
     pausiert: a.aktiv === false,
@@ -2809,7 +3190,7 @@ function massenAenderungDialog(){
   if(ids.size === 0) return;
 
   const gewaehlteTags = new Set();
-  let neueKategorie = "", neuerWeg = "", neuePrio = "", neuesKonto = "";
+  let neuerWeg = "", neuePrio = "", neuesKonto = "";
   let tagModus = "hinzu"; // hinzu | entfernen
 
   const koerper = el("div",{});
@@ -2843,17 +3224,10 @@ function massenAenderungDialog(){
   }
 
   koerper.appendChild(el("div",{ class:"feld" },
-    el("label",{ for:"ma-kat", text:"Kategorie" }),
-    el("select",{ class:"eingabe", id:"ma-kat", onchange:(e)=>neueKategorie=e.target.value },
-      el("option",{ value:"", text:"— unverändert —" }),
-      p.kategorien.slice().sort(collator.compare).map(k => el("option",{ value:k, text:k }))
-    )
-  ));
-  koerper.appendChild(el("div",{ class:"feld" },
     el("label",{ for:"ma-weg", text:"Zahlungsweg" }),
     el("select",{ class:"eingabe", id:"ma-weg", onchange:(e)=>neuerWeg=e.target.value },
       el("option",{ value:"", text:"— unverändert —" }),
-      Object.entries(ZAHLUNGSWEGE).map(([w,d]) => el("option",{ value:w, text:d.name }))
+      p.zahlungswege.map(w => el("option",{ value:w.id, text:w.name }))
     )
   ));
   if(p.konten.length > 0){
@@ -2878,7 +3252,6 @@ function massenAenderungDialog(){
     el("button",{ class:"knopf primaer", type:"button", style:"flex:1", text:"Übernehmen", onclick:() => {
       const ziel = P().ausgaben.filter(a => ids.has(a.id));
       ziel.forEach(a => {
-        if(neueKategorie) a.kategorie = neueKategorie;
         if(neuerWeg) a.zahlungsweg = neuerWeg;
         if(neuePrio) a.prioritaet = neuePrio;
         if(neuesKonto) a.kontoId = neuesKonto;
@@ -3253,7 +3626,7 @@ function tagDetailDialog(eintrag, monat){
       el("button",{ class:"zeile", type:"button", onclick:() => { dialogSchliessen(); setTimeout(()=>ausgabeDialog(a),120); } },
         el("div",{ class:"zeile-haupt" },
           el("div",{ class:"zeile-name", text:a.name }),
-          el("div",{ class:"zeile-unter", text:`${a.kategorie} · ${ZAHLUNGSWEGE[a.zahlungsweg].name}` })
+          el("div",{ class:"zeile-unter", text: postenUnterzeile(a) })
         ),
         el("div",{ class:"zeile-rechts" },
           el("div",{ class:"zeile-betrag", text:euro(a.betragCent) }),
@@ -3268,7 +3641,15 @@ function tagDetailDialog(eintrag, monat){
 
 /* ================================================================
    ANSICHT 4 — AUSWERTUNG
+   Vier Reiter: Monatsanfang · Ausgaben · Sparen · Analyse
    ================================================================ */
+
+const AUSWERTUNG_REITER = [
+  { id:"start",    name:"Monatsanfang", icon:"ic-wiederkehr" },
+  { id:"ausgaben", name:"Ausgaben",     icon:"ic-ausgaben" },
+  { id:"sparen",   name:"Sparen",       icon:"ic-sparen" },
+  { id:"analyse",  name:"Analyse",      icon:"ic-auswertung" }
+];
 
 function zeichneAuswertung(){
   const wurzel = $("#v-auswertung");
@@ -3286,9 +3667,37 @@ function zeichneAuswertung(){
     return;
   }
 
-  const k = kennzahlen();
+  /* Reiterleiste */
+  const leiste = el("div",{ class:"chip-scroll", style:"padding-top:0;margin-bottom:16px" });
+  AUSWERTUNG_REITER.forEach(r => {
+    leiste.appendChild(el("button",{
+      class:"chip wahl", type:"button", style:"padding:9px 14px;min-height:38px",
+      "aria-pressed": UI.auswertungTab === r.id ? "true":"false",
+      onclick:() => { UI.auswertungTab = r.id; zeichneAuswertung(); }
+    }, icon(r.icon, 15), el("span",{ text:r.name })));
+  });
+  wurzel.appendChild(leiste);
 
-  /* --- Bar-Bedarf, prominent --- */
+  const box = el("div",{});
+  wurzel.appendChild(box);
+
+  switch(UI.auswertungTab){
+    case "sparen":   reiterSparen(box); break;
+    case "analyse":  reiterAnalyse(box); break;
+    case "ausgaben": reiterAusgaben(box); break;
+    default:         reiterMonatsanfang(box);
+  }
+}
+
+/* ----------------------------------------------------------------
+   REITER 1 — MONATSANFANG
+   Was muss ich wohin überweisen, sobald das Gehalt da ist?
+   ---------------------------------------------------------------- */
+function reiterMonatsanfang(wurzel){
+  const k = kennzahlen();
+  const plan = ueberweisungsplan();
+
+  /* Bar-Bedarf, prominent */
   wurzel.appendChild(el("div",{ class:"karte" },
     el("div",{ style:"display:flex;align-items:center;gap:14px" },
       el("div",{ style:"width:44px;height:44px;border-radius:12px;background:var(--akzent-weich);color:var(--akzent);display:flex;align-items:center;justify-content:center;flex:none" },
@@ -3302,131 +3711,59 @@ function zeichneAuswertung(){
     el("p",{ class:"t-klein", style:"margin-top:10px;line-height:1.5",
       text: k.barJahr > 0
         ? `So viel brauchst du ${zeitraumWort()} in bar. Alles Weitere läuft über deine Konten.`
-        : "Aktuell ist keine Position als Barzahlung eingetragen." })
+        : "Aktuell ist kein Posten über einen Bargeld-Zahlungsweg eingetragen." })
   ));
 
-  /* --- Summen je Konto --- */
-  const proKonto = summenNachKonto();
-  if(proKonto.length > 0){
-    const tabelle = el("table",{ class:"mini-tabelle" },
-      el("thead",{}, el("tr",{},
-        el("th",{ text:"Konto" }), el("th",{ text:zeitraumWort() })
-      )),
-      el("tbody",{}, proKonto.map(e => el("tr",{},
-        el("td",{},
-          el("div",{ style:"display:flex;align-items:center;gap:9px" },
-            (() => { const s = icon(e.konto ? KONTOTYPEN[e.konto.typ].icon : "ic-ordner"); s.style.width="17px"; s.style.height="17px"; s.style.color="var(--text-3)"; s.style.flex="none"; return s; })(),
-            el("span",{ text: e.konto ? e.konto.name : "Ohne Konto" })
-          )
-        ),
-        el("td",{ text:euroZ(e.jahr) })
-      )))
-    );
-    wurzel.appendChild(el("div",{ class:"karte" },
-      el("div",{ class:"karte-kopf" }, el("h2",{ text:"Nach Konto" })),
-      tabelle
-    ));
-  }
-
-  /* --- Überweisungsplan --- */
-  const plan = ueberweisungsplan();
+  /* Der eigentliche Plan */
   if(plan.eintraege.length > 0){
     const zeilenText = plan.eintraege.map(e =>
-      `${euroZ(e.jahr)} — ${e.text}`).join("\n");
-    const gesamtText = `Vom Einkommen (${euroZ(k.einnahmenJahr)}):\n` + zeilenText +
-      (plan.ueberschussJahr > 0 ? `\n${euroZ(plan.ueberschussJahr)} — bleibt übrig` : "");
+      `${euroZ(e.jahr)} — ${e.name}: ${e.text}`).join("\n");
+    const gesamtText = `Vom Einkommen (${euroZ(k.einnahmenJahr)}):\n` + zeilenText
+      + (plan.freiJahr > 0 ? `\n${euroZ(plan.freiJahr)} — bleibt frei verfügbar` : "")
+      + (plan.ruecklageJahr > 0 ? `\n\nHinweis: davon ${euro(plan.ruecklageJahr/12)} monatlich für Jahresrechnungen zurücklegen.` : "");
 
-    const block = el("div",{ class:"plan-block", text:gesamtText });
     const karte = el("div",{ class:"karte" },
       el("div",{ class:"karte-kopf" },
-        el("h2",{ text:"Überweisungsplan" }),
+        el("h2",{ text:"Dein Monatsanfang" }),
         el("button",{ class:"knopf leise klein", type:"button", text:"Kopieren",
           onclick:(ev) => kopieren(gesamtText, ev.currentTarget) })
       ),
-      el("p",{ class:"t-klein", style:"margin-bottom:14px;line-height:1.5",
-        text:"So verteilst du dein Geld, sobald das Gehalt da ist." }),
-      block
+      el("p",{ class:"t-klein", style:"margin-top:-8px;margin-bottom:16px;line-height:1.5",
+        text:"Sobald das Gehalt da ist, verteilst du es so. Danach musst du bis zum nächsten Monat nichts mehr eintragen." })
     );
-    wurzel.appendChild(karte);
-  }
 
-  /* --- Kategorien --- */
-  const kats = summenNachKategorie();
-  if(kats.length > 0){
-    const gesamtKat = kats.reduce((s,x)=>s+x.jahr,0);
-    wurzel.appendChild(el("div",{ class:"karte" },
-      el("div",{ class:"karte-kopf" },
-        el("h2",{ text:"Teuerste Kategorien" }),
-        el("span",{ class:"t-label", text:zeitraumWort() })
-      ),
-      balkenRangliste(kats.slice(0,10).map((x,i) => ({
-        name:x.name, wert:x.jahr, farbe:palettenFarbe(i)
-      })), gesamtKat),
-      el("div",{ style:"border-top:1px solid var(--linie);margin-top:14px;padding-top:12px" },
-        kats.slice(0,10).map(x => el("div",{ class:"datenzeile", style:"border:0;padding:6px 0" },
-          el("span",{ class:"dz-name", text:x.name }),
-          el("span",{ class:"dz-wert", text:euroZ(x.jahr) })
-        ))
-      )
-    ));
-  }
-
-  /* --- Tags --- */
-  const tagDaten = summenNachTag();
-  if(p.tags.length > 0){
-    const mitWert = tagDaten.liste.filter(t => t.jahr > 0);
-    const gesamtT = mitWert.reduce((s,t)=>s+t.jahr,0);
-    const karte = el("div",{ class:"karte" },
-      el("div",{ class:"karte-kopf" },
-        el("h2",{ text:"Nach Tag" }),
-        el("span",{ class:"t-label", text:zeitraumWort() })
-      )
-    );
-    if(mitWert.length === 0){
-      karte.appendChild(el("p",{ class:"t-klein",
-        text:"Noch keiner Position ist ein Tag zugewiesen. Tags helfen zu sehen, was in bar bereitliegen muss und was über welches Konto läuft." }));
-    } else {
-      karte.appendChild(balkenRangliste(mitWert.map(t => ({
-        name:t.tag.name, wert:t.jahr, farbe:tagFarbe(t.tag)
-      })), gesamtT));
-      karte.appendChild(el("div",{ style:"border-top:1px solid var(--linie);margin-top:14px;padding-top:12px" },
-        mitWert.map(t => el("div",{ class:"datenzeile", style:"border:0;padding:6px 0" },
-          el("span",{ class:"dz-name" },
-            el("span",{ style:"display:inline-flex;align-items:center;gap:7px" },
-              el("span",{ style:`width:8px;height:8px;border-radius:2px;background:${tagFarbe(t.tag)};display:inline-block` }),
-              el("span",{ text:t.tag.name })
-            )
-          ),
-          el("span",{ class:"dz-wert" },
-            el("span",{ text:euroZ(t.jahr) }),
-            el("span",{ class:"neben", text:`${t.anzahl} ${plural(t.anzahl,"Position","Positionen")}` })
+    plan.eintraege.forEach((e,i) => {
+      karte.appendChild(el("div",{ class:"datenzeile", style:"align-items:center" + (i===0 ? ";border-top:0" : "") },
+        el("span",{ class:"dz-name", style:"display:flex;align-items:center;gap:11px;flex:1;min-width:0" },
+          el("span",{ style:`width:34px;height:34px;border-radius:9px;flex:none;display:flex;align-items:center;justify-content:center;`
+            + `background:${e.sparen ? "var(--gruen-weich)" : "var(--karte-2)"};color:${e.sparen ? "var(--gruen)" : "var(--text-2)"}` },
+            icon(e.icon, 17)),
+          el("span",{ style:"min-width:0" },
+            el("span",{ style:"display:block", text:e.name }),
+            el("span",{ class:"neben", text:e.text })
           )
-        ))
+        ),
+        el("span",{ class:"dz-wert " + (e.sparen ? "gruen" : ""), text:euroZ(e.jahr) })
       ));
-      if(tagDaten.ohneAnzahl > 0){
-        karte.appendChild(el("p",{ class:"t-klein", style:"margin-top:10px",
-          text:`${tagDaten.ohneAnzahl} ${plural(tagDaten.ohneAnzahl,"Position hat","Positionen haben")} noch keinen Tag (${euroZ(tagDaten.ohneJahr)}).` }));
-      }
+    });
+
+    if(plan.freiJahr !== 0){
+      karte.appendChild(el("div",{ class:"datenzeile", style:"align-items:center" },
+        el("span",{ class:"dz-name", style:"display:flex;align-items:center;gap:11px;flex:1;min-width:0" },
+          el("span",{ style:"width:34px;height:34px;border-radius:9px;flex:none;display:flex;align-items:center;justify-content:center;background:var(--karte-2);color:var(--text-2)" },
+            icon("ic-sonne", 17)),
+          el("span",{ style:"min-width:0" },
+            el("span",{ style:"display:block", text:"Frei verfügbar" }),
+            el("span",{ class:"neben", text: plan.freiJahr > 0 ? "bleibt dir für alles Weitere" : "hier fehlt Geld" })
+          )
+        ),
+        el("span",{ class:"dz-wert " + (plan.freiJahr < 0 ? "rot" : ""), text:euroZ(plan.freiJahr) })
+      ));
     }
     wurzel.appendChild(karte);
   }
 
-  /* --- Fälligkeitskalender --- */
-  wurzel.appendChild(el("div",{ class:"karte" },
-    el("div",{ class:"karte-kopf" }, el("h2",{ text:"Fälligkeiten" })),
-    kalenderZeichnen()
-  ));
-
-  /* --- Jahresverlauf --- */
-  wurzel.appendChild(el("div",{ class:"karte" },
-    el("div",{ class:"karte-kopf" },
-      el("h2",{ text:"Jahresverlauf" }),
-      el("span",{ class:"t-label", text:"je Monat" })
-    ),
-    jahresverlaufZeichnen()
-  ));
-
-  /* --- Rücklage --- */
+  /* Rücklage für Jahresrechnungen */
   if(k.ruecklageJahr > 0){
     const nichtMonatlich = aktiveAusgaben()
       .filter(a => ["zweimonatlich","vierteljaehrlich","halbjaehrlich","jaehrlich","einmalig"].includes(a.intervall))
@@ -3436,8 +3773,8 @@ function zeichneAuswertung(){
       el("div",{ style:"font-size:30px;font-weight:650;letter-spacing:-.025em;font-variant-numeric:tabular-nums",
         text:euro(k.ruecklageJahr/12) }),
       el("p",{ class:"t-klein", style:"margin-top:6px;line-height:1.5",
-        html:`So viel solltest du <strong style="color:var(--text)">jeden Monat</strong> zur Seite legen, damit die ${nichtMonatlich.length} ${plural(nichtMonatlich.length,"Rechnung","Rechnungen")}, die nicht monatlich kommen, dich nicht überraschen. Im Jahr sind das ${euro(k.ruecklageJahr)}.` }),
-      klapp("Diese Positionen sind gemeint", () => {
+        html:`So viel solltest du <strong style="color:var(--text)">jeden Monat</strong> zusätzlich zur Seite legen, damit die ${nichtMonatlich.length} ${plural(nichtMonatlich.length,"Rechnung","Rechnungen")}, die nicht monatlich kommen, dich nicht überraschen. Im Jahr sind das ${euro(k.ruecklageJahr)}.` }),
+      klapp("Diese Rechnungen sind gemeint", () => {
         const box = el("div",{});
         nichtMonatlich.forEach(a => box.appendChild(el("div",{ class:"datenzeile" },
           el("span",{ class:"dz-name" },
@@ -3454,72 +3791,339 @@ function zeichneAuswertung(){
     ));
   }
 
-  /* --- Fix / Variabel --- */
-  const gesamtAus = k.ausgabenJahr;
-  if(gesamtAus > 0){
+  /* Summen je Konto */
+  const proKonto = summenNachKonto();
+  if(proKonto.length > 0){
     wurzel.appendChild(el("div",{ class:"karte" },
-      el("div",{ class:"karte-kopf" }, el("h2",{ text:"Feste und flexible Kosten" })),
-      el("div",{ class:"regel-balken" },
-        k.fixJahr > 0 ? el("div",{ style:`flex:${k.fixJahr};background:var(--p7)`,
-          "aria-hidden":"true" }) : null,
-        k.varJahr > 0 ? el("div",{ style:`flex:${k.varJahr};background:var(--p5)`,
-          "aria-hidden":"true" }) : null,
-        k.luxJahr > 0 ? el("div",{ style:`flex:${k.luxJahr};background:var(--p4)`,
-          "aria-hidden":"true" }) : null
-      ),
-      el("div",{ class:"legende" },
-        el("span",{ class:"legende-eintrag" }, el("span",{ class:"punkt", style:"background:var(--p7)" }), `Fix ${euroZ(k.fixJahr)}`),
-        el("span",{ class:"legende-eintrag" }, el("span",{ class:"punkt", style:"background:var(--p5)" }), `Variabel ${euroZ(k.varJahr)}`),
-        el("span",{ class:"legende-eintrag" }, el("span",{ class:"punkt", style:"background:var(--p4)" }), `Luxus ${euroZ(k.luxJahr)}`)
-      ),
-      el("p",{ class:"t-klein", style:"margin-top:12px;line-height:1.5",
-        text:`${prozent(k.fixJahr,gesamtAus)} deiner Ausgaben sind fest. Je niedriger dieser Anteil, desto schneller kannst du reagieren, wenn sich etwas ändert.` })
+      el("div",{ class:"karte-kopf" }, el("h2",{ text:"Nach Konto" })),
+      el("table",{ class:"mini-tabelle" },
+        el("thead",{}, el("tr",{},
+          el("th",{ text:"Konto" }), el("th",{ text:zeitraumWort() })
+        )),
+        el("tbody",{}, proKonto.map(e => el("tr",{},
+          el("td",{},
+            el("div",{ style:"display:flex;align-items:center;gap:9px" },
+              (() => { const s = icon(e.konto ? KONTOTYPEN[e.konto.typ].icon : "ic-ordner"); s.style.width="17px"; s.style.height="17px"; s.style.color="var(--text-2)"; s.style.flex="none"; return s; })(),
+              el("span",{ text: e.konto ? e.konto.name : "Ohne Konto" })
+            )
+          ),
+          el("td",{ text:euroZ(e.jahr) })
+        )))
+      )
     ));
   }
 
-  /* --- 50/30/20 --- */
-  const regel = regel503020();
-  if(regel.basis > 0){
-    const s = regel.bedarf + regel.wuensche + regel.sparen;
+  /* Fälligkeitskalender */
+  wurzel.appendChild(el("div",{ class:"karte" },
+    el("div",{ class:"karte-kopf" }, el("h2",{ text:"Fälligkeiten" })),
+    kalenderZeichnen()
+  ));
+}
+
+/* ----------------------------------------------------------------
+   REITER 2 — AUSGABEN
+   ---------------------------------------------------------------- */
+function reiterAusgaben(wurzel){
+  const k = kennzahlen();
+  const p = P();
+
+  /* Kennzahlen oben */
+  wurzel.appendChild(el("div",{ class:"raster raster-2 halb", style:"margin-bottom:12px" },
+    kachel("Ausgaben", euroZ(k.ausgabenJahr), `${k.anzahlAusgaben} ${plural(k.anzahlAusgaben,"Position","Positionen")}`),
+    kachel("Fixkostenquote", prozent(k.fixJahr, k.ausgabenJahr),
+      "je niedriger, desto flexibler")
+  ));
+
+  /* Nach Tag — Donut */
+  const nachTag = summenNachHauptTag();
+  if(nachTag.length > 0){
+    const gesamt = nachTag.reduce((s,x)=>s+x.jahr,0);
     wurzel.appendChild(el("div",{ class:"karte" },
-      el("div",{ class:"karte-kopf" }, el("h2",{ text:"50/30/20-Vergleich" })),
-      el("div",{ class:"regel-balken" },
-        regel.bedarf > 0 ? el("div",{ style:`flex:${regel.bedarf};background:var(--p1)`,
-          "aria-hidden":"true" }) : null,
-        regel.wuensche > 0 ? el("div",{ style:`flex:${regel.wuensche};background:var(--p4)`,
-          "aria-hidden":"true" }) : null,
-        regel.sparen > 0 ? el("div",{ style:`flex:${regel.sparen};background:var(--p2)`,
-          "aria-hidden":"true" }) : null
+      el("div",{ class:"karte-kopf" },
+        el("h2",{ text:"Wohin es geht" }),
+        el("span",{ class:"t-label", text:zeitraumWort() })
       ),
-      el("div",{ style:"margin-top:6px" },
-        [["Bedarf", regel.bedarf, 50, "var(--p1)"],
-         ["Wünsche", regel.wuensche, 30, "var(--p4)"],
-         ["Sparen", regel.sparen, 20, "var(--p2)"]].map(([name,wert,soll,farbe]) =>
-          el("div",{ class:"datenzeile" },
-            el("span",{ class:"dz-name" },
-              el("span",{ style:"display:inline-flex;align-items:center;gap:8px" },
-                el("span",{ style:`width:8px;height:8px;border-radius:2px;background:${farbe};display:inline-block` }),
-                el("span",{ text:name })
-              ),
-              el("span",{ class:"neben", text:`Faustregel: ${soll} %` })
-            ),
-            el("span",{ class:"dz-wert" },
-              el("span",{ text: prozent(wert, s) }),
-              el("span",{ class:"neben", text:euroZ(wert) })
-            )
-          ))
-      ),
-      el("p",{ class:"t-klein", style:"margin-top:14px;line-height:1.5",
-        text:"Das ist nur eine Faustregel, kein Maßstab. Wer in einer teuren Stadt wohnt, liegt beim Bedarf fast immer über 50 %. Sparen zählt hier alles, was du zurücklegst, plus deinen Überschuss." })
+      donutZeichnen(nachTag.slice(0,8).map((x,i) => ({
+        name:x.name, wert:x.jahr, farbe:x.farbe || palettenFarbe(i)
+      })), nachTag.length > 8 ? { name:"Übrige", wert:nachTag.slice(8).reduce((s,x)=>s+x.jahr,0), farbe:"var(--text-3)" } : null),
+      el("p",{ class:"t-klein", style:"margin-top:16px;line-height:1.5",
+        text:"Jede Position zählt hier bei ihrem ersten Tag. So ergibt die Summe genau deine Ausgaben." })
     ));
   }
+
+  /* Rangliste aller Tags */
+  const tagDaten = summenNachTag(true);
+  const mitWert = tagDaten.liste.filter(t => t.jahr > 0 && t.tag.id !== SPAR_TAG_ID);
+  if(mitWert.length > 0){
+    const groesster = Math.max(...mitWert.map(t => t.jahr));
+    wurzel.appendChild(el("div",{ class:"karte" },
+      el("div",{ class:"karte-kopf" },
+        el("h2",{ text:"Alle Tags im Vergleich" }),
+        el("span",{ class:"t-label", text:zeitraumWort() })
+      ),
+      balkenRangliste(mitWert.map(t => ({ name:t.tag.name, wert:t.jahr, farbe:tagFarbe(t.tag) })), null),
+      el("div",{ style:"border-top:1px solid var(--linie);margin-top:14px;padding-top:12px" },
+        mitWert.map(t => el("div",{ class:"datenzeile", style:"border:0;padding:6px 0" },
+          el("span",{ class:"dz-name" },
+            el("span",{ style:"display:inline-flex;align-items:center;gap:7px" },
+              el("span",{ style:`width:8px;height:8px;border-radius:2px;background:${tagFarbe(t.tag)};display:inline-block` }),
+              el("span",{ text:t.tag.name })
+            )
+          ),
+          el("span",{ class:"dz-wert" },
+            el("span",{ text:euroZ(t.jahr) }),
+            el("span",{ class:"neben", text:`${t.anzahl} ${plural(t.anzahl,"Position","Positionen")}` })
+          )
+        ))
+      ),
+      el("p",{ class:"t-klein", style:"margin-top:12px;line-height:1.5",
+        text:"Eine Position kann mehrere Tags haben. Deshalb ergeben diese Zahlen zusammen mehr als deine Gesamtausgaben — jede Zeile ist für sich zu lesen." }),
+      tagDaten.ohneAnzahl > 0 ? el("p",{ class:"t-klein", style:"margin-top:6px",
+        text:`${tagDaten.ohneAnzahl} ${plural(tagDaten.ohneAnzahl,"Position hat","Positionen haben")} noch keinen Tag (${euroZ(tagDaten.ohneJahr)}).` }) : null
+    ));
+  }
+
+  /* Nach Zahlungsweg */
+  const wege = summenNachZahlungsweg().filter(w => w.jahr > 0);
+  if(wege.length > 0){
+    wurzel.appendChild(el("div",{ class:"karte" },
+      el("div",{ class:"karte-kopf" },
+        el("h2",{ text:"Nach Zahlungsweg" }),
+        el("span",{ class:"t-label", text:zeitraumWort() })
+      ),
+      el("table",{ class:"mini-tabelle" },
+        el("thead",{}, el("tr",{},
+          el("th",{ text:"Weg" }), el("th",{ text:"Posten" }), el("th",{ text:zeitraumWort() })
+        )),
+        el("tbody",{}, wege.map(w => el("tr",{},
+          el("td",{},
+            el("div",{ style:"display:flex;align-items:center;gap:9px" },
+              (() => { const s = icon(w.weg.icon); s.style.width="17px"; s.style.height="17px"; s.style.color="var(--text-2)"; s.style.flex="none"; return s; })(),
+              el("span",{ text:w.weg.name })
+            )
+          ),
+          el("td",{ text:String(w.anzahl) }),
+          el("td",{ text:euroZ(w.jahr) })
+        )))
+      )
+    ));
+  }
+
+  /* Größte Einzelposten */
+  const groesste = aktiveAusgaben().slice().sort((a,b) => jahresCent(b)-jahresCent(a)).slice(0,12);
+  if(groesste.length > 0){
+    wurzel.appendChild(el("div",{ class:"karte" },
+      el("div",{ class:"karte-kopf" },
+        el("h2",{ text:"Größte Einzelposten" }),
+        el("span",{ class:"t-label", text:"im Jahr" })
+      ),
+      el("div",{},
+        groesste.map(a => {
+          const std = arbeitsstunden(jahresCent(a));
+          return el("div",{ class:"datenzeile" },
+            el("span",{ class:"dz-name" },
+              el("span",{ text:a.name }),
+              el("span",{ class:"neben", text: `${INTERVALLE[a.intervall].name} · ${prozent(jahresCent(a), k.ausgabenJahr)} deiner Ausgaben`
+                + (std && std >= 1 ? ` · ${Math.round(std)} Arbeitsstunden` : "") })
+            ),
+            el("span",{ class:"dz-wert" },
+              el("span",{ text:euro(jahresCent(a)) }),
+              el("span",{ class:"neben", text:euro(jahresCent(a)/12)+" /Monat" })
+            )
+          );
+        })
+      )
+    ));
+  }
+
+  /* Jahresverlauf */
+  wurzel.appendChild(el("div",{ class:"karte" },
+    el("div",{ class:"karte-kopf" },
+      el("h2",{ text:"Jahresverlauf" }),
+      el("span",{ class:"t-label", text:"je Monat" })
+    ),
+    jahresverlaufZeichnen()
+  ));
+}
+
+/* ----------------------------------------------------------------
+   REITER 3 — SPAREN
+   Der neue Schwerpunkt: alles mit Tag "Sparen", je eigener Zinssatz.
+   ---------------------------------------------------------------- */
+function reiterSparen(wurzel){
+  const u = sparUebersicht();
+  const k = kennzahlen();
+
+  if(u.posten.length === 0 && u.freiJahr <= 0){
+    wurzel.appendChild(leerZustand(
+      "ic-sparen",
+      "Noch keine Sparposten",
+      "Markiere eine Position mit dem Tag „Sparen“, dann rechnet Lohnwerk hier aus, was daraus wird — mit deinem Zinssatz und der Inflation.",
+      "Sparposten anlegen",
+      () => { UI.neuAlsSparen = true; ausgabeDialog(null); }
+    ));
+    return;
+  }
+
+  /* Die drei wichtigsten Zahlen */
+  wurzel.appendChild(el("div",{ class:"raster raster-2", style:"margin-bottom:12px" },
+    kachel("Sparplan", euroZ(u.sparplanJahr), `${u.posten.length} ${plural(u.posten.length,"Posten","Posten")}`, "var(--gruen)"),
+    kachel("Frei verfügbar", euroZ(u.freiJahr), "wird auch gespart",
+      u.freiJahr < 0 ? "var(--rot)" : null),
+    kachel("Sparquote", u.sparquote === null ? "—" : nfProzent.format(u.sparquote).replace(",0","")+" %",
+      "vom Einkommen", u.sparquote === null ? null : (u.sparquote >= 0 ? "var(--gruen)" : "var(--rot)")),
+    kachel("Bereits da", euro(u.bestandGesamt), "von dir eingetragen")
+  ));
+
+  /* Hinweis zur Rechenweise */
+  wurzel.appendChild(el("div",{ class:"banner" },
+    icon("ic-info"),
+    el("div",{ class:"inhalt-b",
+      html:`Du sparst insgesamt <strong>${euroZ(u.gesamtSparenJahr)}</strong> ${zeitraumWort()} — dein fester Sparplan plus alles, was am Monatsende übrig bleibt. `
+        + `Bestände erhöht Lohnwerk nie von allein: Was auf deinen Konten liegt, trägst nur du ein, wenn sich etwas ändert.` })
+  ));
+
+  /* --- Die große Hochrechnung --- */
+  const jahre = UI.sparJahre || S.einstellungen.hochrechnungJahre || 10;
+  const reihe = sparVerlaufGesamt(jahre, true);
+  const ende = reihe[reihe.length-1];
+  const inf = S.einstellungen.inflation || 0;
+
+  const hochKarte = el("div",{ class:"karte" },
+    el("div",{ class:"karte-kopf" },
+      el("h2",{ text:"Was daraus wird" }),
+      el("div",{ class:"segment" },
+        [5,10,20,30].map(j => el("button",{ type:"button", "aria-pressed": jahre === j ? "true":"false",
+          text:j+" J", onclick:() => { UI.sparJahre = j; zeichneAuswertung(); } }))
+      )
+    )
+  );
+
+  hochKarte.appendChild(el("div",{ style:"margin-bottom:6px" },
+    el("div",{ class:"t-kapitaelchen", text:`In ${jahre} ${plural(jahre,"Jahr","Jahren")} hast du` }),
+    el("div",{ style:"font-size:38px;font-weight:650;letter-spacing:-.03em;font-variant-numeric:tabular-nums;color:var(--gruen);margin-top:2px",
+      text:euro(ende.wert) })
+  ));
+
+  if(inf > 0){
+    hochKarte.appendChild(el("p",{ class:"t-klein", style:"line-height:1.55;margin-bottom:16px",
+      html:`Das entspricht der Kaufkraft von heute <strong style="color:var(--text)">${euro(ende.kaufkraft)}</strong>. `
+        + `Bei ${nfProzent.format(inf).replace(",0","")} % Inflation im Jahr verliert Geld an Wert — die Zahl oben sieht größer aus, als sie sich anfühlen wird.` }));
+  }
+
+  hochKarte.appendChild(sparVerlaufZeichnen(reihe, inf > 0));
+
+  /* Aufschlüsselung */
+  hochKarte.appendChild(el("div",{ style:"margin-top:18px" },
+    el("div",{ class:"datenzeile", style:"border-top:0" },
+      el("span",{ class:"dz-name" },
+        el("span",{ style:"display:inline-flex;align-items:center;gap:8px" },
+          el("span",{ style:"width:8px;height:8px;border-radius:2px;background:var(--p1);display:inline-block" }),
+          el("span",{ text:"Selbst eingezahlt" })),
+        el("span",{ class:"neben", text:"Bestand plus alle Raten" })),
+      el("span",{ class:"dz-wert", text:euro(ende.eingezahlt) })
+    ),
+    el("div",{ class:"datenzeile" },
+      el("span",{ class:"dz-name" },
+        el("span",{ style:"display:inline-flex;align-items:center;gap:8px" },
+          el("span",{ style:"width:8px;height:8px;border-radius:2px;background:var(--gruen);display:inline-block" }),
+          el("span",{ text:"Zinsen" })),
+        el("span",{ class:"neben", text:`Mischzins ${nfProzent.format(u.mischZins).replace(",0","")} % — gewichtet nach Sparbetrag` })),
+      el("span",{ class:"dz-wert gruen", text:euro(ende.zinsen) })
+    ),
+    inf > 0 ? el("div",{ class:"datenzeile" },
+      el("span",{ class:"dz-name" },
+        el("span",{ style:"display:inline-flex;align-items:center;gap:8px" },
+          el("span",{ style:"width:8px;height:8px;border-radius:2px;background:var(--rot);display:inline-block" }),
+          el("span",{ text:"Kaufkraftverlust" })),
+        el("span",{ class:"neben", text:`durch ${nfProzent.format(inf).replace(",0","")} % Inflation` })),
+      el("span",{ class:"dz-wert rot", text:"− "+euro(ende.wert - ende.kaufkraft) })
+    ) : null
+  ));
+
+  hochKarte.appendChild(el("p",{ class:"t-klein", style:"margin-top:14px;line-height:1.5",
+    text:"Eine Prognose, kein Kontostand. Sie nimmt an, dass du weiter so sparst und die Zinssätze halten. "
+       + (S.einstellungen.sparSteigerung > 0
+          ? `Deine Sparrate steigt dabei jedes Jahr um ${nfProzent.format(S.einstellungen.sparSteigerung).replace(",0","")} %.`
+          : "Die Annahmen änderst du in den Einstellungen.") }));
+  wurzel.appendChild(hochKarte);
+
+  /* --- Die einzelnen Sparposten --- */
+  if(u.posten.length > 0){
+    const karte = el("div",{ class:"karte" },
+      el("div",{ class:"karte-kopf" },
+        el("h2",{ text:"Deine Sparposten" }),
+        el("button",{ class:"knopf leise klein", type:"button",
+          onclick:() => { UI.neuAlsSparen = true; ausgabeDialog(null); } }, icon("ic-plus"), "Neu")
+      )
+    );
+
+    /* Anteile der Posten als Balken */
+    if(u.sparplanJahr > 0){
+      karte.appendChild(balkenRangliste(u.posten.filter(x=>x.jahr>0).map((x,i) => ({
+        name:x.pos.name, wert:x.jahr, farbe:palettenFarbe(i+1)
+      })), u.sparplanJahr));
+      karte.appendChild(el("div",{ style:"height:8px" }));
+    }
+
+    u.posten.forEach(x => {
+      const verlauf = sparVerlauf(x.bestand, x.jahr, x.zins, jahre,
+                                  S.einstellungen.inflation||0, S.einstellungen.sparSteigerung||0);
+      const endwert = verlauf[verlauf.length-1];
+      const monate = monateBisZiel(x.bestand, x.monat, x.ziel, x.zins);
+      const anteilZiel = x.ziel > 0 ? klemmen(x.bestand / x.ziel * 100, 0, 100) : null;
+
+      const block = el("div",{ style:"border-top:1px solid var(--linie);padding:16px 0" });
+      block.appendChild(el("button",{ type:"button",
+        style:"display:flex;align-items:baseline;justify-content:space-between;gap:12px;width:100%;text-align:left;min-height:32px",
+        onclick:() => ausgabeDialog(x.pos) },
+        el("span",{ style:"min-width:0" },
+          el("span",{ style:"display:block;font-size:16px;font-weight:600;letter-spacing:-.01em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap", text:x.pos.name }),
+          el("span",{ style:"display:block;font-size:12.5px;color:var(--text-2);margin-top:2px",
+            text: `${euro(x.monat)} /Monat`
+              + (x.zins > 0 ? ` · ${nfProzent.format(x.zins).replace(",0","")} % Zinsen` : " · ohne Zinsannahme") })
+        ),
+        el("span",{ style:"text-align:right;flex:none" },
+          el("span",{ style:"display:block;font-size:16px;font-weight:640;font-variant-numeric:tabular-nums", text:euro(x.bestand) }),
+          el("span",{ style:"display:block;font-size:11.5px;color:var(--text-3)", text:"aktuell" })
+        )
+      ));
+
+      if(anteilZiel !== null){
+        block.appendChild(el("div",{ class:"fortschritt", style:"margin:12px 0 6px" },
+          el("div",{ style:`width:${anteilZiel}%` })));
+        block.appendChild(el("div",{ style:"display:flex;justify-content:space-between;font-size:12.5px;color:var(--text-2);font-variant-numeric:tabular-nums" },
+          el("span",{ text:`${Math.round(anteilZiel)} % vom Ziel` }),
+          el("span",{ text: monate === 0 ? "Ziel erreicht"
+                          : monate === null ? `Ziel ${euro(x.ziel)}`
+                          : `noch ${monate} ${plural(monate,"Monat","Monate")}` })
+        ));
+      }
+
+      block.appendChild(el("div",{ class:"t-klein", style:"margin-top:10px;line-height:1.5",
+        html:`In ${jahre} ${plural(jahre,"Jahr","Jahren")}: <strong style="color:var(--text)">${euro(endwert.wert)}</strong>`
+          + (endwert.zinsen > 0 ? ` · davon ${euro(endwert.zinsen)} Zinsen` : "")
+          + ((S.einstellungen.inflation||0) > 0 ? ` · Kaufkraft ${euro(endwert.kaufkraft)}` : "") }));
+
+      karte.appendChild(block);
+    });
+    wurzel.appendChild(karte);
+  }
+
+  /* --- Sparziel-Rechner --- */
+  wurzel.appendChild(sparzielRechner());
 
   /* --- Notgroschen --- */
   const bedarf3 = notgroschenBedarf(3);
   const bedarf6 = notgroschenBedarf(6);
   if(bedarf3 > 0){
     const ziel = S.einstellungen.notgroschenZiel || bedarf3;
-    const stand = S.einstellungen.notgroschenStand;
+    /* Als Stand zählt, was auf Sparposten mit dem Wort "Notgroschen" liegt —
+       sonst der gesamte Bestand. */
+    const notPosten = u.posten.filter(x => /notgroschen|reserve|puffer/i.test(x.pos.name));
+    const stand = notPosten.length > 0
+      ? notPosten.reduce((s,x)=>s+x.bestand,0)
+      : u.bestandGesamt;
     const anteil = ziel > 0 ? klemmen(stand/ziel*100, 0, 100) : 0;
     wurzel.appendChild(el("div",{ class:"karte" },
       el("div",{ class:"karte-kopf" }, el("h2",{ text:"Notgroschen" })),
@@ -3530,28 +4134,276 @@ function zeichneAuswertung(){
         el("span",{ text:`${euro(stand)} zurückgelegt` }),
         el("span",{ text:`Ziel ${euro(ziel)}` })
       ),
+      el("p",{ class:"t-klein", style:"margin-top:10px;line-height:1.5",
+        text: notPosten.length > 0
+          ? `Gerechnet aus dem Bestand deiner Sparposten: ${notPosten.map(x=>x.pos.name).join(', ')}.`
+          : "Gerechnet aus dem Bestand aller Sparposten. Nenne einen Posten „Notgroschen“, dann zählt nur dieser." }),
       el("div",{ class:"knopf-reihe", style:"margin-top:14px" },
-        el("button",{ class:"knopf klein rahmen", type:"button", text:"Stand aktualisieren",
+        el("button",{ class:"knopf klein rahmen", type:"button", text:"Zielbetrag ändern",
           onclick:() => notgroschenDialog(bedarf3) })
       )
     ));
   }
+}
 
-  /* --- Kündigungs-Kandidaten --- */
+/** Sparziel-Rechner: Wie lange dauert es bis X? Oder: wie viel pro Monat? */
+function sparzielRechner(){
+  const u = sparUebersicht();
+  const karte = el("div",{ class:"karte" });
+  karte.appendChild(el("div",{ class:"karte-kopf" },
+    el("h2",{ text:"Sparziel durchrechnen" })
+  ));
+  karte.appendChild(el("p",{ class:"t-klein", style:"margin-top:-8px;margin-bottom:18px;line-height:1.5",
+    text:"Ein Rechner zum Ausprobieren — er ändert nichts an deinen Daten." }));
+
+  let zielCent = 1000000;      // 10.000 €
+  let start = u.bestandGesamt;
+  let rate = Math.round(u.gesamtSparenJahr / 12);
+  let zins = u.mischZins || 0;
+
+  const zielFeld = betragsFeld(zielCent, "Wunschbetrag");
+  zielFeld.feld.removeAttribute("data-autofokus");
+  const startFeld = betragsFeld(start, "Schon vorhanden");
+  startFeld.feld.removeAttribute("data-autofokus");
+  const rateFeld = betragsFeld(rate, "Pro Monat");
+  rateFeld.feld.removeAttribute("data-autofokus");
+  const zinsFeld = el("input",{ class:"eingabe", type:"number", min:"0", max:"30", step:"0.1",
+    inputmode:"decimal", value: zins ? nfProzent.format(zins).replace(",0","") : "", placeholder:"0" });
+
+  const ergebnis = el("div",{ style:"padding:16px;border-radius:12px;background:var(--karte-2);margin-top:6px" });
+
+  const rechnen = () => {
+    const z = zielFeld.wert() ?? 0;
+    const s = startFeld.wert() ?? 0;
+    const r = rateFeld.wert() ?? 0;
+    const zi = parseFloat(String(zinsFeld.value).replace(",",".")) || 0;
+    const monate = monateBisZiel(s, r, z, zi);
+    const inf = S.einstellungen.inflation || 0;
+
+    const kinder = [];
+    if(z <= 0){
+      kinder.push(el("div",{ class:"t-klein", text:"Trag einen Wunschbetrag ein." }));
+    } else if(monate === 0){
+      kinder.push(el("div",{ class:"t-kapitaelchen", text:"Ergebnis" }));
+      kinder.push(el("div",{ class:"gruen", style:"font-size:22px;font-weight:640;margin-top:4px", text:"Schon erreicht" }));
+    } else if(monate === null){
+      kinder.push(el("div",{ class:"t-kapitaelchen", text:"Ergebnis" }));
+      kinder.push(el("div",{ style:"font-size:16px;margin-top:6px;line-height:1.5",
+        text:"Mit dieser Rate wird das Ziel nicht erreicht. Erhöhe den Monatsbetrag." }));
+      if(z > s){
+        const noetig = Math.round((z - s) / (10*12));
+        kinder.push(el("div",{ class:"t-klein", style:"margin-top:8px",
+          text:`Für zehn Jahre bräuchtest du etwa ${euro(noetig)} im Monat.` }));
+      }
+    } else {
+      const jahre = Math.floor(monate/12), restM = monate % 12;
+      const datum = new Date();
+      datum.setMonth(datum.getMonth() + monate);
+      kinder.push(el("div",{ class:"t-kapitaelchen", text:"Ziel erreicht in" }));
+      kinder.push(el("div",{ style:"font-size:26px;font-weight:650;letter-spacing:-.02em;margin-top:2px;color:var(--gruen)",
+        text: jahre > 0 ? `${jahre} ${plural(jahre,"Jahr","Jahren")}${restM ? ` und ${restM} ${plural(restM,"Monat","Monaten")}` : ""}`
+                        : `${monate} ${plural(monate,"Monat","Monaten")}` }));
+      kinder.push(el("div",{ class:"t-klein", style:"margin-top:6px",
+        text:`Also etwa im ${MONATE_LANG[datum.getMonth()]} ${datum.getFullYear()}.` }));
+      if(inf > 0){
+        const realerWert = z / Math.pow(1 + inf/100, monate/12);
+        kinder.push(el("div",{ class:"t-klein", style:"margin-top:8px;line-height:1.5",
+          html:`${euro(z)} haben dann noch die Kaufkraft von heute <strong style="color:var(--text)">${euro(realerWert)}</strong>.` }));
+      }
+    }
+    ergebnis.replaceChildren(...kinder);
+  };
+
+  [zielFeld.feld, startFeld.feld, rateFeld.feld].forEach(f => f.addEventListener("input", rechnen));
+  zinsFeld.addEventListener("input", rechnen);
+
+  karte.appendChild(zielFeld.box);
+  karte.appendChild(el("div",{ class:"feld-reihe" },
+    el("div",{}, startFeld.box),
+    el("div",{}, rateFeld.box)
+  ));
+  karte.appendChild(el("div",{ class:"feld" },
+    el("div",{ class:"feld-label", text:"Zinssatz in Prozent" }), zinsFeld));
+  karte.appendChild(ergebnis);
+  rechnen();
+  return karte;
+}
+
+/**
+ * Das Spar-Verlaufsdiagramm: eine Fläche für das Eingezahlte, darüber
+ * die Zinsen, dazu die Kaufkraft-Linie.
+ */
+function sparVerlaufZeichnen(reihe, mitKaufkraft){
+  const B = 420, H = 210, padL = 4, padR = 4, padO = 12, padU = 26;
+  const nutzH = H - padO - padU;
+  const nutzB = B - padL - padR;
+  const max = Math.max(...reihe.map(r => r.wert), 1);
+  const n = reihe.length - 1;
+  const x = (i) => padL + (n === 0 ? 0 : i / n * nutzB);
+  const y = (w) => padO + nutzH - (w / max * nutzH);
+
+  const svg = svgEl("svg",{ viewBox:`0 0 ${B} ${H}`, class:"diagramm",
+    style:"width:100%;height:auto", role:"img",
+    "aria-label":`Entwicklung deines Ersparten über ${n} Jahre: von ${euro(reihe[0].wert)} auf ${euro(reihe[n].wert)}.` });
+
+  /* Waagerechte Hilfslinien */
+  for(let i = 1; i <= 3; i++){
+    const wert = max / 3 * i;
+    const yy = y(wert);
+    svg.appendChild(svgEl("line",{ x1:padL, y1:yy, x2:B-padR, y2:yy,
+      stroke:"var(--linie)", "stroke-width":1 }));
+    const t = svgEl("text",{ x:padL+2, y:yy-4, "font-size":"8.5", fill:"var(--text-3)",
+      "font-variant-numeric":"tabular-nums" });
+    t.textContent = euroKurz(wert);
+    svg.appendChild(t);
+  }
+
+  const flaeche = (werte, farbe, deckkraft, verzoegerung) => {
+    let d = `M ${x(0)} ${y(0)}`;
+    werte.forEach((w,i) => { d += ` L ${x(i)} ${y(w)}`; });
+    d += ` L ${x(n)} ${y(0)} Z`;
+    const pfad = svgEl("path",{ d, fill:farbe, opacity:deckkraft });
+    pfad.style.animation = `einblenden-weich 800ms ${verzoegerung}ms cubic-bezier(.4,0,.2,1) both`;
+    return pfad;
+  };
+
+  /* Gesamtwert (Eingezahltes + Zinsen) und darunter das Eingezahlte */
+  svg.appendChild(flaeche(reihe.map(r => r.wert), "var(--gruen)", .30, 120));
+  svg.appendChild(flaeche(reihe.map(r => r.eingezahlt), "var(--p1)", .55, 0));
+
+  const linie = (werte, farbe, breite, gestrichelt, verzoegerung) => {
+    let d = "";
+    werte.forEach((w,i) => { d += (i === 0 ? "M" : " L") + ` ${x(i)} ${y(w)}`; });
+    const pfad = svgEl("path",{ d, fill:"none", stroke:farbe, "stroke-width":breite,
+      "stroke-linecap":"round", "stroke-linejoin":"round",
+      "stroke-dasharray": gestrichelt ? "4 4" : null });
+    pfad.style.animation = `einblenden-weich 800ms ${verzoegerung}ms cubic-bezier(.4,0,.2,1) both`;
+    return pfad;
+  };
+  svg.appendChild(linie(reihe.map(r => r.wert), "var(--gruen)", 2.2, false, 200));
+  if(mitKaufkraft){
+    svg.appendChild(linie(reihe.map(r => r.kaufkraft), "var(--rot)", 1.8, true, 320));
+  }
+
+  /* Jahresbeschriftung */
+  const schritt = n <= 10 ? 1 : n <= 20 ? 2 : 5;
+  for(let i = 0; i <= n; i += schritt){
+    const t = svgEl("text",{ x:x(i), y:H-9, "text-anchor": i===0 ? "start" : (i===n ? "end" : "middle"),
+      "font-size":"9", fill:"var(--text-3)" });
+    t.textContent = i === 0 ? "heute" : "+"+i;
+    svg.appendChild(t);
+  }
+
+  const box = el("div",{});
+  box.appendChild(svg);
+  box.appendChild(el("div",{ class:"legende" },
+    el("span",{ class:"legende-eintrag" }, el("span",{ class:"punkt", style:"background:var(--p1)" }), "Eingezahlt"),
+    el("span",{ class:"legende-eintrag" }, el("span",{ class:"punkt", style:"background:var(--gruen)" }), "mit Zinsen"),
+    mitKaufkraft ? el("span",{ class:"legende-eintrag" },
+      el("span",{ style:"width:14px;height:0;border-top:2px dashed var(--rot);display:inline-block" }), "Kaufkraft heute") : null
+  ));
+  return box;
+}
+
+/* ----------------------------------------------------------------
+   REITER 4 — ANALYSE
+   ---------------------------------------------------------------- */
+function reiterAnalyse(wurzel){
+  const k = kennzahlen();
+
+  /* Fix / Variabel / Luxus */
+  if(k.ausgabenJahr > 0){
+    wurzel.appendChild(el("div",{ class:"karte" },
+      el("div",{ class:"karte-kopf" }, el("h2",{ text:"Feste und flexible Kosten" })),
+      el("div",{ class:"regel-balken" },
+        k.fixJahr > 0 ? el("div",{ style:`flex:${k.fixJahr};background:var(--p7)`, "aria-hidden":"true" }) : null,
+        k.varJahr > 0 ? el("div",{ style:`flex:${k.varJahr};background:var(--p5)`, "aria-hidden":"true" }) : null,
+        k.luxJahr > 0 ? el("div",{ style:`flex:${k.luxJahr};background:var(--p4)`, "aria-hidden":"true" }) : null
+      ),
+      el("div",{ style:"margin-top:6px" },
+        [["Fixkosten", k.fixJahr, "var(--p7)", "läuft, egal was ist"],
+         ["Variabel", k.varJahr, "var(--p5)", "Höhe schwankt"],
+         ["Luxus", k.luxJahr, "var(--p4)", "könnte weg"]].map(([name,wert,farbe,neben]) =>
+          el("div",{ class:"datenzeile" },
+            el("span",{ class:"dz-name" },
+              el("span",{ style:"display:inline-flex;align-items:center;gap:8px" },
+                el("span",{ style:`width:8px;height:8px;border-radius:2px;background:${farbe};display:inline-block` }),
+                el("span",{ text:name })),
+              el("span",{ class:"neben", text:neben })),
+            el("span",{ class:"dz-wert" },
+              el("span",{ text:prozent(wert, k.ausgabenJahr) }),
+              el("span",{ class:"neben", text:euroZ(wert) })
+            )
+          ))
+      ),
+      el("p",{ class:"t-klein", style:"margin-top:12px;line-height:1.5",
+        text:`${prozent(k.fixJahr,k.ausgabenJahr)} deiner Ausgaben sind fest. Je niedriger dieser Anteil, desto schneller kannst du reagieren, wenn sich etwas ändert.` })
+    ));
+  }
+
+  /* 50/30/20 */
+  const regel = regel503020();
+  if(regel.basis > 0){
+    const s = regel.bedarf + regel.wuensche + regel.sparen;
+    wurzel.appendChild(el("div",{ class:"karte" },
+      el("div",{ class:"karte-kopf" }, el("h2",{ text:"50/30/20-Vergleich" })),
+      el("div",{ class:"regel-balken" },
+        regel.bedarf > 0 ? el("div",{ style:`flex:${regel.bedarf};background:var(--p1)`, "aria-hidden":"true" }) : null,
+        regel.wuensche > 0 ? el("div",{ style:`flex:${regel.wuensche};background:var(--p4)`, "aria-hidden":"true" }) : null,
+        regel.sparen > 0 ? el("div",{ style:`flex:${regel.sparen};background:var(--gruen)`, "aria-hidden":"true" }) : null
+      ),
+      el("div",{ style:"margin-top:6px" },
+        [["Bedarf", regel.bedarf, 50, "var(--p1)"],
+         ["Wünsche", regel.wuensche, 30, "var(--p4)"],
+         ["Sparen", regel.sparen, 20, "var(--gruen)"]].map(([name,wert,soll,farbe]) => {
+          const ist = s > 0 ? wert/s*100 : 0;
+          return el("div",{ class:"datenzeile" },
+            el("span",{ class:"dz-name" },
+              el("span",{ style:"display:inline-flex;align-items:center;gap:8px" },
+                el("span",{ style:`width:8px;height:8px;border-radius:2px;background:${farbe};display:inline-block` }),
+                el("span",{ text:name })),
+              el("span",{ class:"neben", text:`Faustregel ${soll} % · du liegst ${ist >= soll ? "darüber" : "darunter"}` })
+            ),
+            el("span",{ class:"dz-wert" },
+              el("span",{ text: prozent(wert, s) }),
+              el("span",{ class:"neben", text:euroZ(wert) })
+            )
+          );
+        })
+      ),
+      el("p",{ class:"t-klein", style:"margin-top:14px;line-height:1.5",
+        text:"Nur eine Faustregel, kein Maßstab. Wer in einer teuren Stadt wohnt, liegt beim Bedarf fast immer über 50 %. „Sparen“ zählt hier alles, was übrig bleibt — Sparplan und freier Rest." })
+    ));
+  }
+
+  /* Kündigungs-Kandidaten */
   const kandidaten = kuendigungsKandidaten();
   if(kandidaten.length > 0){
     const summeK = kandidaten.reduce((s,a)=>s+jahresCent(a),0);
     wurzel.appendChild(el("div",{ class:"karte" },
-      el("div",{ class:"karte-kopf" }, el("h2",{ text:"Kündigungs-Kandidaten" })),
+      el("div",{ class:"karte-kopf" }, el("h2",{ text:"Was du einsparen könntest" })),
       el("p",{ class:"t-body", style:"color:var(--text-2);line-height:1.5",
         html:`Diese ${kandidaten.length} ${plural(kandidaten.length,"Position kostet","Positionen kosten")} dich <strong style="color:var(--text)">${euro(summeK)}</strong> im Jahr.` }),
+      (() => {
+        /* Was daraus würde, wenn du es stattdessen sparst */
+        const jahre = S.einstellungen.hochrechnungJahre || 10;
+        const u = sparUebersicht();
+        const verlauf = sparVerlauf(0, summeK, u.mischZins || 0, jahre,
+                                    S.einstellungen.inflation||0, 0);
+        const ende = verlauf[verlauf.length-1];
+        return el("p",{ class:"t-klein", style:"margin-top:8px;line-height:1.55",
+          html:`Würdest du das stattdessen sparen, wären daraus in ${jahre} ${plural(jahre,"Jahr","Jahren")} `
+            + `<strong style="color:var(--gruen)">${euro(ende.wert)}</strong> geworden.` });
+      })(),
       el("div",{ style:"margin-top:10px" },
-        kandidaten.slice(0,12).map(a => {
+        kandidaten.slice(0,15).map(a => {
           const std = arbeitsstunden(jahresCent(a));
           return el("div",{ class:"datenzeile" },
-            el("span",{ class:"dz-name" },
-              el("span",{ text:a.name }),
-              el("span",{ class:"neben", text: `${a.kategorie} · ${INTERVALLE[a.intervall].name}` + (std ? ` · rund ${Math.round(std)} ${plural(Math.round(std),"Arbeitsstunde","Arbeitsstunden")} im Jahr` : "") })
+            el("button",{ class:"dz-name", type:"button", style:"text-align:left;min-width:0;flex:1",
+              onclick:() => ausgabeDialog(a) },
+              el("span",{ style:"display:block", text:a.name }),
+              el("span",{ class:"neben", text: `${INTERVALLE[a.intervall].name} · ${wegFuer(a).name}`
+                + (std && std >= 1 ? ` · rund ${Math.round(std)} ${plural(Math.round(std),"Arbeitsstunde","Arbeitsstunden")} im Jahr` : "") })
             ),
             el("span",{ class:"dz-wert" },
               el("span",{ text:euro(jahresCent(a)) }),
@@ -3563,29 +4415,27 @@ function zeichneAuswertung(){
     ));
   }
 
-  /* --- Was wäre wenn --- */
+  /* Was wäre wenn */
   wurzel.appendChild(wasWaereWennKarte());
 
-  /* --- Hochrechnung --- */
-  if(k.ueberschussJahr !== 0){
-    const zins = S.einstellungen.tagesgeldZins;
+  /* Stundenlohn */
+  const lohn = stundenlohnCent();
+  if(lohn){
     wurzel.appendChild(el("div",{ class:"karte" },
-      el("div",{ class:"karte-kopf" }, el("h2",{ text:"Hochrechnung" })),
-      el("div",{ style:"display:grid;gap:2px" },
-        [12,24,60].map(m => el("div",{ class:"datenzeile" },
-          el("span",{ class:"dz-name", text:`in ${m/12} ${plural(m/12,"Jahr","Jahren")}` }),
-          el("span",{ class:"dz-wert " + (hochrechnung(m) >= 0 ? "gruen":"rot"), text:euro(hochrechnung(m)) })
-        ))
-      ),
-      el("p",{ class:"t-klein", style:"margin-top:12px;line-height:1.5",
-        text: k.ueberschussJahr > 0
-          ? (zins > 0
-              ? `Bei gleichbleibendem Überschuss und ${nfProzent.format(zins).replace(",0","")} % Zinsen im Jahr.`
-              : "Bei gleichbleibendem Überschuss, ohne Zinsen. Einen Zinssatz kannst du in den Einstellungen eintragen.")
-          : "So groß wird die Lücke, wenn sich nichts ändert." })
+      el("div",{ class:"karte-kopf" }, el("h2",{ text:"Stundenlohn" })),
+      el("div",{ style:"font-size:30px;font-weight:650;letter-spacing:-.025em;font-variant-numeric:tabular-nums",
+        text:euro(lohn) }),
+      el("p",{ class:"t-klein", style:"margin-top:6px;line-height:1.5",
+        text:`Bei ${nfZahl.format(S.einstellungen.wochenstunden).replace(",00","")} Wochenstunden. Lohnwerk nutzt das, um bei teuren Positionen zu zeigen, wie viel Arbeitszeit dahintersteckt.` })
+    ));
+  } else {
+    wurzel.appendChild(el("div",{ class:"karte flach" },
+      el("p",{ class:"t-klein", style:"line-height:1.5",
+        text:"Trag in den Einstellungen deine Wochenarbeitszeit ein — dann zeigt Lohnwerk bei jeder Position, wie vielen Arbeitsstunden sie entspricht." })
     ));
   }
 }
+
 
 /** Der Was-wäre-wenn-Bereich mit Schiebereglern. */
 function wasWaereWennKarte(){
@@ -3882,9 +4732,12 @@ function ausgabeDialog(vorhanden){
   const neu = !vorhanden;
   const daten = vorhanden
     ? JSON.parse(JSON.stringify(vorhanden))
-    : { id:idNeu("au"), name:"", betragCent:0, intervall:"monatlich", kategorie:p.kategorien[0] || "Sonstiges",
-        zahlungsweg:"giro", kontoId:null, faelligTag:1, startMonat:heute().getMonth()+1,
-        tags:[], prioritaet:"variabel", aktiv:true, notiz:"" };
+    : { id:idNeu("au"), name:"", betragCent:0, intervall:"monatlich",
+        zahlungsweg:(p.zahlungswege[1]||p.zahlungswege[0]).id, kontoId:null,
+        faelligTag:1, startMonat:heute().getMonth()+1,
+        tags: UI.neuAlsSparen ? [SPAR_TAG_ID] : [], prioritaet:"variabel", aktiv:true, notiz:"",
+        zinsProzent:0, bestandCent:0, zielCent:0 };
+  UI.neuAlsSparen = false;
 
   const koerper = el("div",{});
 
@@ -3901,32 +4754,23 @@ function ausgabeDialog(vorhanden){
     (w) => { daten.intervall = w; terminSichtbarkeit(); vorschauAktualisieren(); });
   koerper.appendChild(iv.box);
 
-  /* Kategorie mit der Möglichkeit, direkt eine neue anzulegen */
-  const katSel = el("select",{ class:"eingabe", onchange:(e) => {
+  /* Zahlungsweg — mit der Möglichkeit, direkt einen neuen anzulegen. */
+  const wegSel = el("select",{ class:"eingabe", onchange:(e) => {
     if(e.target.value === "__neu"){
-      neueKategorieDialog((name) => {
-        daten.kategorie = name;
-        katSel.replaceChildren(...katOptionen());
-        katSel.value = name;
+      wegDialog(null, (neuerWeg) => {
+        daten.zahlungsweg = neuerWeg.id;
+        wegSel.replaceChildren(...wegOptionen());
+        wegSel.value = neuerWeg.id;
       });
-      katSel.value = daten.kategorie;
-    } else daten.kategorie = e.target.value;
+      wegSel.value = daten.zahlungsweg;
+    } else daten.zahlungsweg = e.target.value;
   }});
-  const katOptionen = () => {
-    const liste = P().kategorien.slice().sort(collator.compare);
-    if(!liste.includes(daten.kategorie)) liste.unshift(daten.kategorie);
-    return [
-      ...liste.map(k => el("option",{ value:k, selected:k===daten.kategorie, text:k })),
-      el("option",{ value:"__neu", text:"+ Neue Kategorie …" })
-    ];
-  };
-  katSel.replaceChildren(...katOptionen());
-  koerper.appendChild(el("div",{ class:"feld" }, el("div",{ class:"feld-label", text:"Kategorie" }), katSel));
-
-  const weg = auswahlFeld("Zahlungsweg",
-    Object.entries(ZAHLUNGSWEGE).map(([w,d]) => [w, d.name]), daten.zahlungsweg,
-    (w) => { daten.zahlungsweg = w; });
-  koerper.appendChild(weg.box);
+  const wegOptionen = () => [
+    ...P().zahlungswege.map(w => el("option",{ value:w.id, selected:w.id===daten.zahlungsweg, text:w.name })),
+    el("option",{ value:"__neu", text:"+ Neuer Zahlungsweg …" })
+  ];
+  wegSel.replaceChildren(...wegOptionen());
+  koerper.appendChild(el("div",{ class:"feld" }, el("div",{ class:"feld-label", text:"Zahlungsweg" }), wegSel));
 
   const kontoOptionen = [["", "— automatisch nach Zahlungsweg —"], ...p.konten.map(k => [k.id, k.name])];
   const konto = auswahlFeld("Konto", kontoOptionen, daten.kontoId || "", (w) => daten.kontoId = w || null);
@@ -3978,7 +4822,7 @@ function ausgabeDialog(vorhanden){
   }
   terminSichtbarkeit();
 
-  /* Tags */
+  /* Tags — das Spar-Tag steht vorn und schaltet die Sparfelder frei. */
   const tagBox = el("div",{ class:"chip-reihe" });
   const tagsZeichnen = () => {
     tagBox.replaceChildren();
@@ -3989,6 +4833,8 @@ function ausgabeDialog(vorhanden){
           if(daten.tags.includes(t.id)) daten.tags = daten.tags.filter(x => x !== t.id);
           else daten.tags.push(t.id);
           ev.currentTarget.setAttribute("aria-pressed", daten.tags.includes(t.id) ? "true":"false");
+          sparSichtbarkeit();
+          vorschauAktualisieren();
         }},
         el("span",{ class:"punkt", style:`background:${tagFarbe(t)}` }),
         el("span",{ text:t.name })
@@ -4000,7 +4846,43 @@ function ausgabeDialog(vorhanden){
   };
   tagsZeichnen();
   koerper.appendChild(el("div",{ class:"feld" },
-    el("div",{ class:"feld-label", text:"Tags" }), tagBox));
+    el("div",{ class:"feld-label", text:"Tags" }), tagBox,
+    el("div",{ class:"feld-hinweis",
+      text:"Mit dem Tag „Sparen“ zählt die Position nicht als Ausgabe, sondern als Geld, das dir bleibt." })));
+
+  /* Sparfelder — nur sichtbar, wenn das Spar-Tag gesetzt ist. */
+  const zinsFeld = el("input",{ class:"eingabe", type:"number", min:"0", max:"30", step:"0.05",
+    inputmode:"decimal", value: daten.zinsProzent || "", placeholder:"z. B. 2,5",
+    onchange:(e) => {
+      const v = parseFloat(String(e.target.value).replace(",","."));
+      daten.zinsProzent = Number.isFinite(v) ? klemmen(v,0,30) : 0;
+      vorschauAktualisieren();
+    }});
+  const bestand = betragsFeld(daten.bestandCent, "Schon zurückgelegt");
+  bestand.feld.removeAttribute("data-autofokus");
+  bestand.feld.addEventListener("input", () => vorschauAktualisieren());
+  const ziel = betragsFeld(daten.zielCent, "Sparziel (optional)");
+  ziel.feld.removeAttribute("data-autofokus");
+  ziel.feld.addEventListener("input", () => vorschauAktualisieren());
+
+  const sparBox = el("div",{ style:"margin-top:4px;padding:16px 16px 16px 18px;border-radius:14px;"
+      + "background:var(--karte-2);box-shadow:inset 3px 0 0 var(--gruen)" },
+    el("div",{ style:"display:flex;align-items:center;gap:9px;margin-bottom:14px" },
+      (() => { const s = icon("ic-sparen"); s.style.width="18px"; s.style.height="18px"; s.style.color="var(--gruen)"; return s; })(),
+      el("span",{ class:"t-kapitaelchen", style:"color:var(--gruen)", text:"Sparposten" })
+    ),
+    el("div",{ class:"feld" }, el("div",{ class:"feld-label", text:"Zinssatz pro Jahr in Prozent" }), zinsFeld,
+      el("div",{ class:"feld-hinweis", text:"Für die Hochrechnung. Tagesgeld, Sparbuch, ETF-Erwartung — was du für realistisch hältst." })),
+    bestand.box,
+    ziel.box,
+    el("p",{ class:"t-klein", style:"line-height:1.5;margin-top:-4px",
+      text:"Den Stand pflegst du selbst. Lohnwerk erhöht ihn nie von allein — du sollst nicht jeden Monat etwas eintragen müssen." })
+  );
+  koerper.appendChild(sparBox);
+  function sparSichtbarkeit(){
+    sparBox.style.display = daten.tags.includes(SPAR_TAG_ID) ? "" : "none";
+  }
+  sparSichtbarkeit();
 
   const notizFeld = el("textarea",{ class:"eingabe", placeholder:"Optional — Vertragsnummer, Kündigungsfrist …", maxlength:"400" });
   notizFeld.value = daten.notiz || "";
@@ -4015,13 +4897,39 @@ function ausgabeDialog(vorhanden){
     const c = betrag.wert() ?? 0;
     const jahr = Math.round(c * INTERVALLE[daten.intervall].faktor);
     const std = arbeitsstunden(jahr);
-    vorschau.replaceChildren(
+    const sparen = daten.tags.includes(SPAR_TAG_ID);
+
+    const kinder = [
       el("div",{ class:"t-kapitaelchen", text:"Ergibt" }),
       el("div",{ style:"font-size:16px;font-weight:600;margin-top:4px;font-variant-numeric:tabular-nums",
-        text:`${euro(jahr/12)} im Monat · ${euro(jahr)} im Jahr` }),
-      std && std >= 1 ? el("div",{ class:"t-klein", style:"margin-top:4px",
-        text:`Entspricht rund ${Math.round(std)} ${plural(Math.round(std),"Arbeitsstunde","Arbeitsstunden")} im Jahr.` }) : null
-    );
+        text:`${euro(jahr/12)} im Monat · ${euro(jahr)} im Jahr` })
+    ];
+
+    if(sparen){
+      /* Bei Sparposten interessiert nicht der Arbeitsstunden-Vergleich,
+         sondern was daraus wird. */
+      const start = bestand.wert() ?? 0;
+      const zielC = ziel.wert() ?? 0;
+      const jahre = S.einstellungen.hochrechnungJahre || 10;
+      const reihe = sparVerlauf(start, jahr, daten.zinsProzent||0, jahre,
+                                S.einstellungen.inflation||0, S.einstellungen.sparSteigerung||0);
+      const ende = reihe[reihe.length-1];
+      kinder.push(el("div",{ class:"t-klein", style:"margin-top:8px;line-height:1.55",
+        html:`In ${jahre} ${plural(jahre,"Jahr","Jahren")}: <strong style="color:var(--text)">${euro(ende.wert)}</strong>`
+           + (ende.zinsen > 0 ? ` — davon ${euro(ende.zinsen)} Zinsen` : "")
+           + `<br>Kaufkraft in heutigem Geld: ${euro(ende.kaufkraft)}` }));
+      if(zielC > 0){
+        const m = monateBisZiel(start, jahr/12, zielC, daten.zinsProzent||0);
+        kinder.push(el("div",{ class:"t-klein", style:"margin-top:6px",
+          text: m === null ? "Das Ziel wird mit diesem Betrag nicht erreicht."
+              : m === 0 ? "Das Ziel ist schon erreicht."
+              : `Ziel erreicht in ${m} ${plural(m,"Monat","Monaten")}${m>=12 ? ` (rund ${(m/12).toFixed(1).replace(".",",")} Jahre)` : ""}.` }));
+      }
+    } else if(std && std >= 1){
+      kinder.push(el("div",{ class:"t-klein", style:"margin-top:4px",
+        text:`Entspricht rund ${Math.round(std)} ${plural(Math.round(std),"Arbeitsstunde","Arbeitsstunden")} im Jahr.` }));
+    }
+    vorschau.replaceChildren(...kinder);
   }
   betrag.feld.addEventListener("input", vorschauAktualisieren);
   vorschauAktualisieren();
@@ -4035,8 +4943,13 @@ function ausgabeDialog(vorhanden){
     daten.betragCent = Math.max(0, c);
     daten.faelligTag = klemmen(parseInt(tagFeld.value,10)||1,1,31);
     daten.notiz = notizFeld.value.slice(0,400);
+    if(daten.tags.includes(SPAR_TAG_ID)){
+      daten.bestandCent = Math.max(0, bestand.wert() ?? 0);
+      daten.zielCent = Math.max(0, ziel.wert() ?? 0);
+    } else {
+      daten.zinsProzent = 0; daten.bestandCent = 0; daten.zielCent = 0;
+    }
     const pr = P();
-    if(!pr.kategorien.includes(daten.kategorie)) pr.kategorien.push(daten.kategorie);
     const i = pr.ausgaben.findIndex(x => x.id === daten.id);
     if(i >= 0) pr.ausgaben[i] = daten; else pr.ausgaben.push(daten);
     dialogSchliessen();
@@ -4061,25 +4974,92 @@ function ausgabeDialog(vorhanden){
 
 /* ---------- Kleine Anleger-Dialoge ---------- */
 
-function neueKategorieDialog(dann){
-  const feld = el("input",{ class:"eingabe", type:"text", placeholder:"z. B. Hobby", maxlength:"50", "data-autofokus":"" });
-  const koerper = el("div",{}, el("div",{ class:"feld" },
-    el("div",{ class:"feld-label", text:"Name der Kategorie" }), feld));
+/**
+ * Zahlungsweg anlegen oder bearbeiten.
+ * Der Kontotyp entscheidet, wo das Geld landet — vor allem, ob es
+ * beim Bar-Bedarf mitzählt.
+ */
+function wegDialog(vorhanden, dann){
+  const daten = vorhanden
+    ? { ...vorhanden }
+    : { id:idNeu("zw"), name:"", icon:"ic-bank", kontotyp:"giro" };
+
+  const feld = el("input",{ class:"eingabe", type:"text", maxlength:"40",
+    placeholder:"z. B. Dauerauftrag", value:daten.name, "data-autofokus":"" });
+
+  const typ = auswahlFeld("Woher kommt das Geld?",
+    Object.entries(KONTOTYPEN).map(([w,d]) => [w, d.name]), daten.kontotyp,
+    (w) => daten.kontotyp = w);
+
+  /* Symbolauswahl */
+  const iconBox = el("div",{ class:"chip-reihe" });
+  const iconsZeichnen = () => {
+    iconBox.replaceChildren();
+    WEG_ICONS.forEach(ic => {
+      const b = el("button",{ class:"sym", type:"button", "aria-label":"Symbol wählen",
+        style:`width:44px;height:44px;background:${daten.icon===ic?"var(--akzent-weich)":"var(--karte-2)"};`
+            + `color:${daten.icon===ic?"var(--akzent)":"var(--text-2)"};`
+            + `box-shadow:${daten.icon===ic?"inset 0 0 0 1.8px var(--akzent)":"none"}`,
+        onclick:() => { daten.icon = ic; iconsZeichnen(); } }, icon(ic));
+      iconBox.appendChild(b);
+    });
+  };
+  iconsZeichnen();
+
+  const koerper = el("div",{},
+    el("div",{ class:"feld" }, el("div",{ class:"feld-label", text:"Name" }), feld),
+    typ.box,
+    el("div",{ class:"feld" }, el("div",{ class:"feld-label", text:"Symbol" }), iconBox,
+      el("div",{ class:"feld-hinweis",
+        text:"Bargeld zählt beim Punkt „Bar bereitlegen“ mit. Alles andere läuft über ein Konto." }))
+  );
+
   const speichernFn = () => {
-    const name = feld.value.trim().slice(0,50);
-    if(!name){ feld.focus(); return; }
+    const name = feld.value.trim().slice(0,40);
+    if(!name){ feld.focus(); toast("Gib dem Zahlungsweg einen Namen."); return; }
+    daten.name = name;
     const p = P();
-    if(!p.kategorien.includes(name)) p.kategorien.push(name);
+    const i = p.zahlungswege.findIndex(w => w.id === daten.id);
+    if(i >= 0) p.zahlungswege[i] = daten; else p.zahlungswege.push(daten);
     dialogSchliessen(2);
     speichern();
-    if(dann) dann(name);
+    if(dann) dann(daten);
+    if(aktiveAnsicht === "einstellungen") zeichnen();
   };
   koerper.addEventListener("keydown", (e) => { if(e.key === "Enter"){ e.preventDefault(); speichernFn(); } });
+
   const fuss = el("div",{ style:"display:flex;gap:8px;width:100%" },
-    el("button",{ class:"knopf", type:"button", style:"flex:1", text:"Abbrechen", onclick:() => dialogSchliessen(2) }),
-    el("button",{ class:"knopf primaer", type:"button", style:"flex:1", text:"Anlegen", onclick:speichernFn })
+    vorhanden ? el("button",{ class:"knopf gefahr", type:"button", "aria-label":"Zahlungsweg löschen",
+      onclick:() => wegLoeschen(daten) }, icon("ic-muell")) : null,
+    el("button",{ class:"knopf primaer", type:"button", style:"flex:1",
+      text: vorhanden ? "Speichern" : "Anlegen", onclick:speichernFn })
   );
-  dialogOeffnen({ titel:"Neue Kategorie", koerper, fuss, ebene:2 });
+  dialogOeffnen({ titel: vorhanden ? "Zahlungsweg bearbeiten" : "Neuer Zahlungsweg", koerper, fuss, ebene:2 });
+}
+
+function wegLoeschen(weg){
+  const p = P();
+  if(p.zahlungswege.length <= 1){
+    toast("Es muss mindestens ein Zahlungsweg übrig bleiben.");
+    return;
+  }
+  const betroffen = p.ausgaben.filter(a => a.zahlungsweg === weg.id).length;
+  const ersatz = p.zahlungswege.find(w => w.id !== weg.id);
+  bestaetigen({
+    titel:"Zahlungsweg löschen",
+    text: betroffen > 0
+      ? `${betroffen} ${plural(betroffen,"Position wechselt","Positionen wechseln")} auf „${ersatz.name}“. Die Positionen selbst bleiben erhalten.`
+      : `„${weg.name}“ wird gelöscht.`,
+    knopfText:"Löschen", gefahr:true, ebene:2,
+    dann:() => {
+      const pr = P();
+      pr.zahlungswege = pr.zahlungswege.filter(w => w.id !== weg.id);
+      pr.ausgaben.forEach(a => { if(a.zahlungsweg === weg.id) a.zahlungsweg = ersatz.id; });
+      dialogSchliessen(2);
+      aendern();
+      toast("Zahlungsweg gelöscht.");
+    }
+  });
 }
 
 function neuerTagDialog(dann, vorhanden){
@@ -4114,15 +5094,26 @@ function neuerTagDialog(dann, vorhanden){
   };
   koerper.addEventListener("keydown", (e) => { if(e.key === "Enter"){ e.preventDefault(); speichernFn(); } });
   const fuss = el("div",{ style:"display:flex;gap:8px;width:100%" },
-    vorhanden ? el("button",{ class:"knopf gefahr", type:"button", "aria-label":"Tag löschen",
+    (vorhanden && vorhanden.id !== SPAR_TAG_ID) ? el("button",{ class:"knopf gefahr", type:"button", "aria-label":"Tag löschen",
       onclick:() => tagLoeschen(daten) }, icon("ic-muell")) : null,
     el("button",{ class:"knopf primaer", type:"button", style:"flex:1", text: vorhanden ? "Speichern" : "Anlegen", onclick:speichernFn })
   );
+  if(vorhanden && vorhanden.id === SPAR_TAG_ID){
+    koerper.insertBefore(el("div",{ class:"banner", style:"margin-bottom:18px" },
+      icon("ic-info"),
+      el("div",{ class:"inhalt-b",
+        text:"Dieses Tag gehört fest zu Lohnwerk. Alles, was du damit markierst, zählt als Sparen statt als Ausgabe. Umbenennen und umfärben geht, löschen nicht." })
+    ), koerper.firstChild);
+  }
   dialogOeffnen({ titel: vorhanden ? "Tag bearbeiten" : "Neuer Tag", koerper, fuss, ebene:2 });
 }
 
 function tagLoeschen(tag){
   const p = P();
+  if(tag.id === SPAR_TAG_ID){
+    toast("Das Tag „Sparen“ gehört fest zu Lohnwerk und lässt sich nicht löschen.");
+    return;
+  }
   const betroffen = p.ausgaben.filter(a => a.tags.includes(tag.id)).length;
   bestaetigen({
     titel:"Tag löschen",
@@ -4229,7 +5220,7 @@ function profilDialog(vorhanden){
         p.id = idNeu("pr");
       } else {
         p = profilNeu(name);
-        p.tags = TAG_VORSCHLAEGE.slice(0,5).map(t => ({ id:idNeu("tg"), name:t.name, farbe:t.farbe }));
+        p.tags = [ { ...SPAR_TAG }, ...TAG_VORSCHLAEGE.slice(0,6).map(t => ({ id:idNeu("tg"), name:t.name, farbe:t.farbe })) ];
         p.konten = KONTO_VORSCHLAEGE.map(k => ({ id:idNeu("ko"), name:k.name, typ:k.typ, startsaldoCent:0 }));
       }
       p.name = name;
@@ -4356,37 +5347,40 @@ function zeichneEinstellungen(){
         onclick:() => neuerTagDialog(null, t) },
         el("span",{ class:"punkt", style:`background:${tagFarbe(t)}` }),
         el("span",{ text:t.name }),
+        t.id === SPAR_TAG_ID ? el("span",{ style:"color:var(--gruen)", title:"fest eingebaut" }, icon("ic-schloss", 12)) : null,
         el("span",{ style:"color:var(--text-2);font-weight:400", text:String(anzahl) })
       ));
     });
     tagKarte.appendChild(reihe);
+    tagKarte.appendChild(el("p",{ class:"t-klein", style:"margin-top:14px;line-height:1.5",
+      text:"Tags ersetzen die frühere Kategorie. Eine Position kann mehrere haben — das Tag „Sparen“ ist fest eingebaut und macht aus einer Ausgabe einen Sparposten." }));
   }
   wurzel.appendChild(tagKarte);
 
-  /* --- Kategorien --- */
-  const katKarte = el("div",{ class:"karte" },
+  /* --- Zahlungswege --- */
+  const wegKarte = el("div",{ class:"karte" },
     el("div",{ class:"karte-kopf" },
-      el("h2",{ text:"Kategorien" }),
-      el("button",{ class:"knopf leise klein", type:"button", onclick:() => neueKategorieDialog(() => zeichnen()) },
+      el("h2",{ text:"Zahlungswege" }),
+      el("button",{ class:"knopf leise klein", type:"button", onclick:() => wegDialog(null, () => zeichnen()) },
         icon("ic-plus"), "Neu")
     )
   );
-  if(p.kategorien.length === 0){
-    katKarte.appendChild(el("p",{ class:"t-klein", text:"Noch keine Kategorien angelegt." }));
-  } else {
-    const reihe = el("div",{ class:"chip-reihe" });
-    p.kategorien.slice().sort(collator.compare).forEach(k => {
-      const anzahl = p.ausgaben.filter(a => a.kategorie === k).length;
-      reihe.appendChild(el("button",{ class:"chip", type:"button", style:"padding:8px 12px",
-        "aria-label":`Kategorie ${k} bearbeiten`,
-        onclick:() => kategorieBearbeitenDialog(k) },
-        el("span",{ text:k }),
-        el("span",{ style:"color:var(--text-2);font-weight:400", text:String(anzahl) })
-      ));
-    });
-    katKarte.appendChild(reihe);
-  }
-  wurzel.appendChild(katKarte);
+  p.zahlungswege.forEach(w => {
+    const anzahl = p.ausgaben.filter(a => a.zahlungsweg === w.id).length;
+    wegKarte.appendChild(el("div",{ class:"datenzeile", style:"align-items:center" },
+      el("button",{ type:"button", style:"flex:1;text-align:left;min-width:0;display:flex;align-items:center;gap:11px;min-height:44px",
+        onclick:() => wegDialog(w, () => zeichnen()) },
+        (() => { const s = icon(w.icon); s.style.width="19px"; s.style.height="19px"; s.style.color="var(--text-2)"; s.style.flex="none"; return s; })(),
+        el("span",{ style:"min-width:0" },
+          el("span",{ style:"display:block;font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap", text:w.name }),
+          el("span",{ style:"display:block;font-size:12.5px;color:var(--text-2)",
+            text:`${KONTOTYPEN[w.kontotyp].name} · ${anzahl} ${plural(anzahl,"Position","Positionen")}` })
+        )
+      ),
+      el("span",{ class:"zeile-pfeil" }, icon("ic-rechts"))
+    ));
+  });
+  wurzel.appendChild(wegKarte);
 
   /* --- Darstellung --- */
   wurzel.appendChild(el("div",{ class:"karte" },
@@ -4420,22 +5414,41 @@ function zeichneEinstellungen(){
       S.einstellungen.wochenstunden = Number.isFinite(v) ? klemmen(v,0,168) : 0;
       aendern();
     }});
-  const zinsFeld = el("input",{ class:"eingabe", type:"number", min:"0", max:"20", step:"0.05", inputmode:"decimal",
-    value: S.einstellungen.tagesgeldZins || "",
-    placeholder:"z. B. 2,5",
-    onchange:(e) => {
-      const v = parseFloat(String(e.target.value).replace(",","."));
-      S.einstellungen.tagesgeldZins = Number.isFinite(v) ? klemmen(v,0,20) : 0;
-      aendern();
-    }});
   wurzel.appendChild(el("div",{ class:"karte" },
     el("div",{ class:"karte-kopf" }, el("h2",{ text:"Persönliches" })),
-    el("div",{ class:"feld" },
-      el("div",{ class:"feld-label", text:"Wochenarbeitszeit in Stunden" }), stundenFeld,
-      el("div",{ class:"feld-hinweis", text:"Wenn eingetragen, zeigt Lohnwerk bei teuren Positionen, wie vielen Arbeitsstunden sie entsprechen." })),
     el("div",{ class:"feld", style:"margin-bottom:0" },
-      el("div",{ class:"feld-label", text:"Zinssatz Tagesgeld in Prozent" }), zinsFeld,
-      el("div",{ class:"feld-hinweis", text:"Wird nur für die Hochrechnung genutzt." }))
+      el("div",{ class:"feld-label", text:"Wochenarbeitszeit in Stunden" }), stundenFeld,
+      el("div",{ class:"feld-hinweis", text:"Wenn eingetragen, zeigt Lohnwerk bei teuren Positionen, wie vielen Arbeitsstunden sie entsprechen." }))
+  ));
+
+  /* --- Annahmen für die Hochrechnung --- */
+  const zahlFeld = (wert, min, max, schritt, platzhalter, setzen) =>
+    el("input",{ class:"eingabe", type:"number", min:String(min), max:String(max), step:String(schritt),
+      inputmode:"decimal", value: wert || "", placeholder:platzhalter,
+      onchange:(e) => {
+        const v = parseFloat(String(e.target.value).replace(",","."));
+        setzen(Number.isFinite(v) ? klemmen(v,min,max) : 0);
+        aendern();
+      }});
+
+  wurzel.appendChild(el("div",{ class:"karte" },
+    el("div",{ class:"karte-kopf" }, el("h2",{ text:"Annahmen für die Hochrechnung" })),
+    el("p",{ class:"t-klein", style:"margin-top:-8px;margin-bottom:18px;line-height:1.5",
+      text:"Diese Werte gelten für alle Prognosen in der Auswertung. Den Zinssatz trägst du bei jedem Sparposten einzeln ein — so kann Tagesgeld anders rechnen als ein Depot." }),
+    el("div",{ class:"feld" },
+      el("div",{ class:"feld-label", text:"Inflation in Prozent pro Jahr" }),
+      zahlFeld(S.einstellungen.inflation, 0, 20, 0.1, "z. B. 2",
+        (v) => S.einstellungen.inflation = v),
+      el("div",{ class:"feld-hinweis", text:"Damit rechnet Lohnwerk aus, was dein Erspartes später real noch wert ist. Langfristiger Schnitt in Deutschland: rund 2 %." })),
+    el("div",{ class:"feld" },
+      el("div",{ class:"feld-label", text:"Sparrate steigt jährlich um … Prozent" }),
+      zahlFeld(S.einstellungen.sparSteigerung, 0, 20, 0.5, "0",
+        (v) => S.einstellungen.sparSteigerung = v),
+      el("div",{ class:"feld-hinweis", text:"Wenn du erwartest, künftig mehr sparen zu können — etwa durch Gehaltserhöhungen. 0 lässt die Rate gleich." })),
+    el("div",{ class:"feld", style:"margin-bottom:0" },
+      el("div",{ class:"feld-label", text:"Zeitraum der Hochrechnung in Jahren" }),
+      zahlFeld(S.einstellungen.hochrechnungJahre, 1, 40, 1, "10",
+        (v) => S.einstellungen.hochrechnungJahre = Math.round(v)))
   ));
 
   /* --- Sichern & Wiederherstellen --- */
@@ -4495,50 +5508,6 @@ function zeichneEinstellungen(){
 
   wurzel.appendChild(el("p",{ class:"t-klein", style:"text-align:center;padding:20px 0 0",
     text:"Lohnwerk · läuft ohne Internet · keine Konten, keine Werbung, kein Tracking" }));
-}
-
-function kategorieBearbeitenDialog(alt){
-  const p = P();
-  const anzahl = p.ausgaben.filter(a => a.kategorie === alt).length;
-  const feld = el("input",{ class:"eingabe", type:"text", value:alt, maxlength:"50", "data-autofokus":"" });
-  const koerper = el("div",{},
-    el("div",{ class:"feld" }, el("div",{ class:"feld-label", text:"Name" }), feld,
-      el("div",{ class:"feld-hinweis", text:`${anzahl} ${plural(anzahl,"Position nutzt","Positionen nutzen")} diese Kategorie.` }))
-  );
-  const speichernFn = () => {
-    const neu = feld.value.trim().slice(0,50);
-    if(!neu || neu === alt){ dialogSchliessen(2); return; }
-    const pr = P();
-    pr.kategorien = pr.kategorien.filter(k => k !== alt);
-    if(!pr.kategorien.includes(neu)) pr.kategorien.push(neu);
-    pr.ausgaben.forEach(a => { if(a.kategorie === alt) a.kategorie = neu; });
-    dialogSchliessen(2);
-    aendern();
-    toast("Kategorie umbenannt.");
-  };
-  koerper.addEventListener("keydown", (e) => { if(e.key === "Enter"){ e.preventDefault(); speichernFn(); } });
-  const fuss = el("div",{ style:"display:flex;gap:8px;width:100%" },
-    el("button",{ class:"knopf gefahr", type:"button", "aria-label":"Kategorie löschen", onclick:() => {
-      bestaetigen({
-        titel:"Kategorie löschen",
-        text: anzahl > 0
-          ? `${anzahl} ${plural(anzahl,"Position wandert","Positionen wandern")} nach „Sonstiges“. Die Positionen bleiben erhalten.`
-          : `„${alt}“ wird gelöscht.`,
-        knopfText:"Löschen", gefahr:true, ebene:2,
-        dann:() => {
-          const pr = P();
-          pr.kategorien = pr.kategorien.filter(k => k !== alt);
-          pr.ausgaben.forEach(a => { if(a.kategorie === alt) a.kategorie = "Sonstiges"; });
-          if(anzahl > 0 && !pr.kategorien.includes("Sonstiges")) pr.kategorien.push("Sonstiges");
-          dialogSchliessen(2);
-          aendern();
-          toast("Kategorie gelöscht.");
-        }
-      });
-    }}, icon("ic-muell")),
-    el("button",{ class:"knopf primaer", type:"button", style:"flex:1", text:"Speichern", onclick:speichernFn })
-  );
-  dialogOeffnen({ titel:"Kategorie", koerper, fuss, ebene:2 });
 }
 
 function zuruecksetzenDialog(){
@@ -4610,15 +5579,16 @@ function csvExportieren(){
 
   const zeilen = [];
   zeilen.push(["Typ","Bezeichnung","Betrag","Intervall","Betrag pro Monat","Betrag pro Jahr",
-               "Kategorie","Zahlungsweg","Konto","Fälliger Tag","Startmonat","Tags","Priorität","Aktiv","Notiz"].map(feld).join(trenn));
+               "Zahlungsweg","Konto","Fälliger Tag","Startmonat","Tags","Priorität",
+               "Zinssatz %","Bestand","Sparziel","Aktiv","Notiz"].map(feld).join(trenn));
 
   p.einnahmen.forEach(e => {
     const j = e.aktiv === false ? 0 : jahresCent(e);
     const konto = p.konten.find(k => k.id === e.kontoId);
     zeilen.push([
       "Einnahme", e.name, zahl(e.betragCent), INTERVALLE[e.intervall].name,
-      zahl(j/12), zahl(j), e.art === "brutto" ? "Brutto" : "Netto", "", konto ? konto.name : "",
-      e.eingangTag, "", "", "", e.aktiv === false ? "nein":"ja", e.notiz || ""
+      zahl(j/12), zahl(j), e.art === "brutto" ? "Brutto" : "Netto", konto ? konto.name : "",
+      e.eingangTag, "", "", "", "", "", "", e.aktiv === false ? "nein":"ja", e.notiz || ""
     ].map(feld).join(trenn));
   });
 
@@ -4626,20 +5596,30 @@ function csvExportieren(){
     const j = a.aktiv === false ? 0 : jahresCent(a);
     const konto = kontoFuer(a);
     const tagNamen = a.tags.map(id => p.tags.find(t => t.id === id)?.name).filter(Boolean).join(", ");
+    const sparen = istSparen(a);
     zeilen.push([
-      "Ausgabe", a.name, zahl(a.betragCent), INTERVALLE[a.intervall].name,
-      zahl(j/12), zahl(j), a.kategorie, ZAHLUNGSWEGE[a.zahlungsweg].name,
+      sparen ? "Sparen" : "Ausgabe", a.name, zahl(a.betragCent), INTERVALLE[a.intervall].name,
+      zahl(j/12), zahl(j), wegFuer(a).name,
       konto ? konto.name : "", a.faelligTag, MONATE_LANG[(a.startMonat||1)-1],
-      tagNamen, PRIORITAETEN[a.prioritaet].name, a.aktiv === false ? "nein":"ja", a.notiz || ""
+      tagNamen, PRIORITAETEN[a.prioritaet].name,
+      sparen ? nfZahl.format(a.zinsProzent||0) : "",
+      sparen ? zahl(a.bestandCent||0) : "",
+      sparen && a.zielCent ? zahl(a.zielCent) : "",
+      a.aktiv === false ? "nein":"ja", a.notiz || ""
     ].map(feld).join(trenn));
   });
 
   const k = kennzahlen();
+  const u = sparUebersicht();
   zeilen.push("");
   zeilen.push(["Summe","Einnahmen","","", zahl(k.einnahmenJahr/12), zahl(k.einnahmenJahr)].map(feld).join(trenn));
-  zeilen.push(["Summe","Ausgaben","","", zahl(k.ausgabenJahr/12), zahl(k.ausgabenJahr)].map(feld).join(trenn));
+  zeilen.push(["Summe","Ausgaben (ohne Sparen)","","", zahl(k.ausgabenJahr/12), zahl(k.ausgabenJahr)].map(feld).join(trenn));
   zeilen.push(["Summe","Überschuss","","", zahl(k.ueberschussJahr/12), zahl(k.ueberschussJahr)].map(feld).join(trenn));
-  zeilen.push(["Summe","Bar-Bedarf","","", zahl(k.barJahr/12), zahl(k.barJahr)].map(feld).join(trenn));
+  zeilen.push(["Summe","davon fester Sparplan","","", zahl(k.sparplanJahr/12), zahl(k.sparplanJahr)].map(feld).join(trenn));
+  zeilen.push(["Summe","davon frei verfügbar","","", zahl(k.freiJahr/12), zahl(k.freiJahr)].map(feld).join(trenn));
+  zeilen.push(["Summe","Bar bereitlegen","","", zahl(k.barJahr/12), zahl(k.barJahr)].map(feld).join(trenn));
+  zeilen.push(["Summe","Rücklage für Jahresrechnungen","","", zahl(k.ruecklageJahr/12), zahl(k.ruecklageJahr)].map(feld).join(trenn));
+  zeilen.push(["Stand","Bereits zurückgelegt","","","", zahl(u.bestandGesamt)].map(feld).join(trenn));
 
   // BOM (U+FEFF) voranstellen, damit Excel die Umlaute richtig liest.
   const inhalt = "\uFEFF" + zeilen.join("\r\n");
@@ -4748,18 +5728,27 @@ function importHinzufuegen(neuerZustand){
     });
     // Tags übernehmen, gleiche Namen zusammenführen.
     const tagKarte = new Map();
+    tagKarte.set(SPAR_TAG_ID, SPAR_TAG_ID);       // das feste Tag bleibt, wie es ist
     quelle.tags.forEach(t => {
+      if(t.id === SPAR_TAG_ID) return;
       const vorhanden = ziel.tags.find(z => z.name.toLowerCase() === t.name.toLowerCase());
       if(vorhanden){ tagKarte.set(t.id, vorhanden.id); }
       else { const neu = { ...t, id:idNeu("tg") }; ziel.tags.push(neu); tagKarte.set(t.id, neu.id); }
     });
-    quelle.kategorien.forEach(k => { if(!ziel.kategorien.includes(k)) ziel.kategorien.push(k); });
+    // Zahlungswege gleicher Bezeichnung zusammenführen.
+    const wegKarte = new Map();
+    quelle.zahlungswege.forEach(w => {
+      const vorhanden = ziel.zahlungswege.find(z => z.name.toLowerCase() === w.name.toLowerCase());
+      if(vorhanden){ wegKarte.set(w.id, vorhanden.id); }
+      else { const neu = { ...w, id:idNeu("zw") }; ziel.zahlungswege.push(neu); wegKarte.set(w.id, neu.id); }
+    });
     quelle.einnahmen.forEach(e => {
       ziel.einnahmen.push({ ...e, id:idNeu("ei"), kontoId: kontoKarte.get(e.kontoId) || null });
     });
     quelle.ausgaben.forEach(a => {
       ziel.ausgaben.push({ ...a, id:idNeu("au"),
         kontoId: kontoKarte.get(a.kontoId) || null,
+        zahlungsweg: wegKarte.get(a.zahlungsweg) || ziel.zahlungswege[0].id,
         tags: a.tags.map(t => tagKarte.get(t)).filter(Boolean) });
     });
   });
@@ -4771,7 +5760,7 @@ function importHinzufuegen(neuerZustand){
 
 function einrichtungOeffnen(){
   let schritt = 1;
-  const auswahlKategorien = new Set();
+  const auswahlPosten = new Set();
   const auswahlKonten = new Set(KONTO_VORSCHLAEGE.map(k => k.name));
   const einkommen = [{ name:"Gehalt", betrag:"" }];
 
@@ -4825,19 +5814,27 @@ function einrichtungOeffnen(){
     }
 
     if(schritt === 2){
-      inhalt.appendChild(el("h3",{ class:"t-h2", style:"margin-bottom:6px", text:"Welche Kosten hast du?" }));
+      inhalt.appendChild(el("h3",{ class:"t-h2", style:"margin-bottom:6px", text:"Was geht raus, was legst du zurück?" }));
       inhalt.appendChild(el("p",{ class:"t-klein", style:"margin-bottom:20px;line-height:1.5",
-        text:"Tippe an, was auf dich zutrifft. Die Beträge trägst du gleich danach ein." }));
-      const raster = el("div",{ class:"vorschlag-raster" });
-      KATEGORIE_VORSCHLAEGE.forEach(k => {
-        raster.appendChild(el("button",{ class:"vorschlag", type:"button",
-          "aria-pressed": auswahlKategorien.has(k) ? "true":"false",
-          onclick:(ev) => {
-            if(auswahlKategorien.has(k)) auswahlKategorien.delete(k); else auswahlKategorien.add(k);
-            ev.currentTarget.setAttribute("aria-pressed", auswahlKategorien.has(k) ? "true":"false");
-          }}, k));
-      });
-      inhalt.appendChild(raster);
+        text:"Tippe an, was auf dich zutrifft. Die Beträge trägst du gleich danach ein — hier geht es nur um die Auswahl." }));
+
+      const bauen = (titel, liste, hinweis) => {
+        inhalt.appendChild(el("div",{ class:"t-kapitaelchen", style:"margin:18px 0 10px", text:titel }));
+        if(hinweis) inhalt.appendChild(el("p",{ class:"t-klein", style:"margin-bottom:12px;line-height:1.5", text:hinweis }));
+        const raster = el("div",{ class:"vorschlag-raster" });
+        liste.forEach(v => {
+          raster.appendChild(el("button",{ class:"vorschlag", type:"button",
+            "aria-pressed": auswahlPosten.has(v.name) ? "true":"false",
+            onclick:(ev) => {
+              if(auswahlPosten.has(v.name)) auswahlPosten.delete(v.name); else auswahlPosten.add(v.name);
+              ev.currentTarget.setAttribute("aria-pressed", auswahlPosten.has(v.name) ? "true":"false");
+            }}, v.name));
+        });
+        inhalt.appendChild(raster);
+      };
+      bauen("Ausgaben", POSTEN_VORSCHLAEGE.filter(v => !v.sparen));
+      bauen("Sparen", POSTEN_VORSCHLAEGE.filter(v => v.sparen),
+        "Diese Posten bekommen das Tag „Sparen“. Sie zählen nicht als Ausgabe — das Geld bleibt ja deins.");
     }
 
     if(schritt === 3){
@@ -4855,7 +5852,7 @@ function einrichtungOeffnen(){
       });
       inhalt.appendChild(raster);
       inhalt.appendChild(el("p",{ class:"t-klein", style:"margin-top:22px;line-height:1.5",
-        text:"Außerdem werden ein paar nützliche Tags angelegt: Bar, Girokonto, Tagesgeld, Fixkosten, Kündbar und weitere. Alles lässt sich in den Einstellungen ändern." }));
+        text:"Außerdem legt Lohnwerk nützliche Tags an (Fixkosten, Kündbar, Wohnen, Auto und weitere) sowie die Zahlungswege Bar, Überweisung, Dauerauftrag, Lastschrift, Kreditkarte und Tagesgeld. Alles lässt sich später ändern." }));
     }
   }
 
@@ -4866,13 +5863,13 @@ function einrichtungOeffnen(){
       if(!p.konten.some(x => x.name === k.name))
         p.konten.push({ id:idNeu("ko"), name:k.name, typ:k.typ, startsaldoCent:0 });
     });
-    // Tags
+    // Tags — das Spar-Tag ist schon da, die anderen kommen dazu.
     TAG_VORSCHLAEGE.forEach(t => {
-      if(!p.tags.some(x => x.name === t.name))
+      if(!p.tags.some(x => x.name.toLowerCase() === t.name.toLowerCase()))
         p.tags.push({ id:idNeu("tg"), name:t.name, farbe:t.farbe });
     });
-    // Kategorien
-    auswahlKategorien.forEach(k => { if(!p.kategorien.includes(k)) p.kategorien.push(k); });
+    const tagId = (name) => p.tags.find(t => t.name.toLowerCase() === name.toLowerCase())?.id;
+
     // Einnahmen
     const giro = p.konten.find(k => k.typ === "giro");
     einkommen.forEach(e => {
@@ -4882,25 +5879,31 @@ function einrichtungOeffnen(){
       p.einnahmen.push({ id:idNeu("ei"), name:name.slice(0,80), betragCent:c, intervall:"monatlich",
         kontoId: giro ? giro.id : null, eingangTag:1, art:"netto", aktiv:true, notiz:"" });
     });
-    // Ausgaben-Gerüst mit Betrag 0, damit der Nutzer nur noch Zahlen eintragen muss
-    auswahlKategorien.forEach(k => {
-      if(p.ausgaben.some(a => a.name === k)) return;
+
+    /* Positionen mit Betrag 0 anlegen — der Nutzer trägt nur noch Zahlen ein. */
+    const wegBar = p.zahlungswege.find(w => w.kontotyp === "bargeld");
+    const wegStandard = p.zahlungswege.find(w => w.name === "Lastschrift") || p.zahlungswege[1] || p.zahlungswege[0];
+    const wegSparen = p.zahlungswege.find(w => w.kontotyp === "tagesgeld") || wegStandard;
+
+    POSTEN_VORSCHLAEGE.filter(v => auswahlPosten.has(v.name)).forEach(v => {
+      if(p.ausgaben.some(a => a.name === v.name)) return;
+      const tags = v.tags.map(tagId).filter(Boolean);
+      if(v.sparen && !tags.includes(SPAR_TAG_ID)) tags.unshift(SPAR_TAG_ID);
       p.ausgaben.push({
-        id:idNeu("au"), name:k, betragCent:0, intervall:"monatlich", kategorie:k,
-        zahlungsweg: k.toLowerCase().includes("lebensmittel") || k.toLowerCase().includes("friseur") ? "bar" : "giro",
-        kontoId:null, faelligTag:1, startMonat:1, tags:[],
-        prioritaet: ["Miete/Wohnen","Strom","Heizung","Nebenkosten","Internet & Telefon","Mobilfunk","Rundfunkbeitrag","Krankenversicherung","Haftpflichtversicherung","Hausratversicherung","KFZ-Versicherung","Berufsunfähigkeit","Kredit/Rate","ÖPNV-Ticket","Kinderbetreuung"].includes(k) ? "fix"
-                  : ["Abos & Streaming","Fitness","Urlaub","Geschenke"].includes(k) ? "luxus" : "variabel",
-        aktiv:true, notiz:""
+        id:idNeu("au"), name:v.name, betragCent:0, intervall:"monatlich",
+        zahlungsweg: v.sparen ? wegSparen.id : (v.bar && wegBar ? wegBar.id : wegStandard.id),
+        kontoId:null, faelligTag:1, startMonat:1, tags,
+        prioritaet: v.prio, aktiv:true, notiz:"",
+        zinsProzent:0, bestandCent:0, zielCent:0
       });
     });
 
     S.einrichtungFertig = true;
     dialogSchliessen();
     aendern();
-    navigieren(auswahlKategorien.size > 0 ? "ausgaben" : "uebersicht");
-    if(auswahlKategorien.size > 0){
-      toast(`${auswahlKategorien.size} ${plural(auswahlKategorien.size,"Position angelegt","Positionen angelegt")}. Trag jetzt die Beträge ein.`, null, 8000);
+    navigieren(auswahlPosten.size > 0 ? "ausgaben" : "uebersicht");
+    if(auswahlPosten.size > 0){
+      toast(`${auswahlPosten.size} ${plural(auswahlPosten.size,"Position angelegt","Positionen angelegt")}. Trag jetzt die Beträge ein.`, null, 8000);
     }
   }
 
@@ -4918,7 +5921,7 @@ function beispieldatenLaden(){
       tg:  { id:idNeu("ko"), name:"Tagesgeld", typ:"tagesgeld", startsaldoCent:412000 }
     };
     p.konten = [konten.bar, konten.giro, konten.tg];
-    const tags = {};
+    const tags = { "Sparen": SPAR_TAG_ID };
     TAG_VORSCHLAEGE.forEach(t => {
       const n = { id:idNeu("tg"), name:t.name, farbe:t.farbe };
       p.tags.push(n);
@@ -4933,47 +5936,61 @@ function beispieldatenLaden(){
       { id:idNeu("ei"), name:"Urlaubsgeld", betragCent:110000, intervall:"jaehrlich", kontoId:konten.giro.id, eingangTag:30, art:"netto", aktiv:true, notiz:"kommt im Juni" }
     ];
 
-    const A = (name, betrag, intervall, kategorie, weg, tag, prio, tagNamen, startMonat, konto) => ({
-      id:idNeu("au"), name, betragCent:betrag, intervall, kategorie, zahlungsweg:weg,
+    /* Zahlungswege nach Namen ansprechbar machen. */
+    const w = {};
+    p.zahlungswege.forEach(x => w[x.name] = x.id);
+
+    /* name, Betrag in Cent, Intervall, Zahlungsweg, Fälligkeitstag, Priorität,
+       Tags, Startmonat, Konto, Sparfelder {zins, bestand, ziel} */
+    const A = (name, betrag, intervall, weg, tag, prio, tagNamen, startMonat, konto, spar) => ({
+      id:idNeu("au"), name, betragCent:betrag, intervall, zahlungsweg: w[weg] || p.zahlungswege[0].id,
       kontoId: konto || null, faelligTag:tag, startMonat: startMonat || 1,
-      tags:(tagNamen||[]).map(n => tags[n]).filter(Boolean), prioritaet:prio, aktiv:true, notiz:""
+      tags:(tagNamen||[]).map(n => n === "Sparen" ? SPAR_TAG_ID : tags[n]).filter(Boolean),
+      prioritaet:prio, aktiv:true, notiz:"",
+      zinsProzent: spar?.zins || 0, bestandCent: spar?.bestand || 0, zielCent: spar?.ziel || 0
     });
 
     p.ausgaben = [
-      A("Kaltmiete", 98000, "monatlich", "Miete/Wohnen", "lastschrift", 1, "fix", ["Fixkosten","Girokonto","Notwendig","Gemeinsam"]),
-      A("Nebenkosten", 21000, "monatlich", "Nebenkosten", "lastschrift", 1, "fix", ["Fixkosten","Girokonto","Notwendig"]),
-      A("Strom", 8900, "monatlich", "Strom", "lastschrift", 3, "fix", ["Fixkosten","Girokonto"]),
-      A("Internet & Telefon", 3999, "monatlich", "Internet & Telefon", "lastschrift", 5, "fix", ["Fixkosten","Girokonto"]),
-      A("Mobilfunk", 1299, "monatlich", "Mobilfunk", "lastschrift", 8, "fix", ["Fixkosten","Girokonto","Kündbar"]),
-      A("Rundfunkbeitrag", 5518, "vierteljaehrlich", "Rundfunkbeitrag", "lastschrift", 15, "fix", ["Fixkosten","Girokonto"], 2),
-      A("Lebensmittel", 52000, "monatlich", "Lebensmittel", "bar", 1, "variabel", ["Bar","Variabel","Notwendig","Gemeinsam"], 1, konten.bar.id),
-      A("Wocheneinkauf Markt", 3500, "woechentlich", "Lebensmittel", "bar", 1, "variabel", ["Bar","Variabel"], 1, konten.bar.id),
-      A("Drogerie", 6500, "monatlich", "Drogerie", "bar", 1, "variabel", ["Bar","Variabel"], 1, konten.bar.id),
-      A("Haftpflichtversicherung", 8400, "jaehrlich", "Haftpflichtversicherung", "lastschrift", 12, "fix", ["Jährlich fällig","Girokonto","Notwendig"], 3),
-      A("Hausratversicherung", 11200, "jaehrlich", "Hausratversicherung", "lastschrift", 12, "fix", ["Jährlich fällig","Girokonto"], 3),
-      A("KFZ-Versicherung", 46800, "jaehrlich", "KFZ-Versicherung", "lastschrift", 1, "fix", ["Jährlich fällig","Girokonto","Notwendig"], 1),
-      A("KFZ-Steuer", 14600, "jaehrlich", "Auto (Steuer)", "lastschrift", 20, "fix", ["Jährlich fällig","Girokonto"], 7),
-      A("Sprit", 16000, "monatlich", "Auto (Sprit)", "kreditkarte", 1, "variabel", ["Variabel"]),
-      A("Auto Wartung & TÜV", 42000, "jaehrlich", "Auto (Wartung)", "giro", 10, "variabel", ["Jährlich fällig"], 9),
-      A("Krankenversicherung Zusatz", 3450, "monatlich", "Krankenversicherung", "lastschrift", 1, "fix", ["Fixkosten","Girokonto"]),
-      A("Altersvorsorge", 15000, "monatlich", "Altersvorsorge", "lastschrift", 1, "fix", ["Fixkosten","Girokonto"]),
-      A("Sparplan Tagesgeld", 25000, "monatlich", "Sparen", "tagesgeld", 28, "fix", ["Tagesgeld","Fixkosten"], 1, konten.tg.id),
-      A("Notgroschen aufbauen", 10000, "monatlich", "Notgroschen", "tagesgeld", 28, "fix", ["Tagesgeld"], 1, konten.tg.id),
-      A("Streaming Video", 1299, "monatlich", "Abos & Streaming", "kreditkarte", 12, "luxus", ["Kündbar","Luxus"]),
-      A("Streaming Musik", 1099, "monatlich", "Abos & Streaming", "kreditkarte", 18, "luxus", ["Kündbar","Luxus"]),
-      A("Cloud-Speicher", 299, "monatlich", "Abos & Streaming", "kreditkarte", 22, "luxus", ["Kündbar","Luxus"]),
-      A("Zeitungs-Abo", 4990, "monatlich", "Abos & Streaming", "lastschrift", 1, "luxus", ["Kündbar","Luxus"]),
-      A("Fitnessstudio", 3990, "monatlich", "Fitness", "lastschrift", 1, "luxus", ["Kündbar","Luxus","Privat"]),
-      A("Kleidung", 8000, "monatlich", "Kleidung", "kreditkarte", 1, "variabel", ["Variabel"]),
-      A("Friseur", 3500, "zweimonatlich", "Friseur", "bar", 12, "variabel", ["Bar","Variabel"], 1, konten.bar.id),
-      A("Haustier Futter & Tierarzt", 6500, "monatlich", "Haustier", "giro", 1, "variabel", ["Variabel"]),
-      A("Urlaub", 180000, "jaehrlich", "Urlaub", "giro", 1, "luxus", ["Jährlich fällig","Luxus"], 7),
-      A("Geschenke", 25000, "jaehrlich", "Geschenke", "bar", 1, "variabel", ["Bar","Jährlich fällig"], 12, konten.bar.id),
-      A("Taschengeld Kind", 3000, "monatlich", "Kinderbetreuung", "bar", 1, "fix", ["Bar","Fixkosten"], 1, konten.bar.id),
-      A("Waschmaschine (Ersatz)", 65000, "einmalig", "Puffer", "giro", 15, "variabel", [], 10)
+      A("Kaltmiete", 98000, "monatlich", "Dauerauftrag", 1, "fix", ["Wohnen","Fixkosten","Notwendig","Gemeinsam"]),
+      A("Nebenkosten", 21000, "monatlich", "Dauerauftrag", 1, "fix", ["Wohnen","Fixkosten","Notwendig"]),
+      A("Strom", 8900, "monatlich", "Lastschrift", 3, "fix", ["Wohnen","Fixkosten"]),
+      A("Internet & Telefon", 3999, "monatlich", "Lastschrift", 5, "fix", ["Fixkosten"]),
+      A("Mobilfunk", 1299, "monatlich", "Lastschrift", 8, "fix", ["Fixkosten","Kündbar"]),
+      A("Rundfunkbeitrag", 5518, "vierteljaehrlich", "Lastschrift", 15, "fix", ["Fixkosten"], 2),
+      A("Lebensmittel", 52000, "monatlich", "Bar", 1, "variabel", ["Variabel","Notwendig","Gemeinsam"], 1, konten.bar.id),
+      A("Wocheneinkauf Markt", 3500, "woechentlich", "Bar", 1, "variabel", ["Variabel"], 1, konten.bar.id),
+      A("Drogerie", 6500, "monatlich", "Bar", 1, "variabel", ["Variabel"], 1, konten.bar.id),
+      A("Haftpflichtversicherung", 8400, "jaehrlich", "Lastschrift", 12, "fix", ["Versicherung","Jährlich fällig","Notwendig"], 3),
+      A("Hausratversicherung", 11200, "jaehrlich", "Lastschrift", 12, "fix", ["Versicherung","Jährlich fällig"], 3),
+      A("KFZ-Versicherung", 46800, "jaehrlich", "Lastschrift", 1, "fix", ["Auto","Versicherung","Jährlich fällig"], 1),
+      A("KFZ-Steuer", 14600, "jaehrlich", "Lastschrift", 20, "fix", ["Auto","Jährlich fällig"], 7),
+      A("Sprit", 16000, "monatlich", "Kreditkarte", 1, "variabel", ["Auto","Variabel"]),
+      A("Auto Wartung & TÜV", 42000, "jaehrlich", "Überweisung", 10, "variabel", ["Auto","Jährlich fällig"], 9),
+      A("Krankenversicherung Zusatz", 3450, "monatlich", "Lastschrift", 1, "fix", ["Versicherung","Fixkosten"]),
+      A("Streaming Video", 1299, "monatlich", "Kreditkarte", 12, "luxus", ["Abo","Kündbar","Luxus"]),
+      A("Streaming Musik", 1099, "monatlich", "Kreditkarte", 18, "luxus", ["Abo","Kündbar","Luxus"]),
+      A("Cloud-Speicher", 299, "monatlich", "Kreditkarte", 22, "luxus", ["Abo","Kündbar","Luxus"]),
+      A("Zeitungs-Abo", 4990, "monatlich", "Lastschrift", 1, "luxus", ["Abo","Kündbar","Luxus"]),
+      A("Fitnessstudio", 3990, "monatlich", "Lastschrift", 1, "luxus", ["Abo","Kündbar","Luxus","Privat"]),
+      A("Kleidung", 8000, "monatlich", "Kreditkarte", 1, "variabel", ["Variabel"]),
+      A("Friseur", 3500, "zweimonatlich", "Bar", 12, "variabel", ["Variabel"], 1, konten.bar.id),
+      A("Haustier Futter & Tierarzt", 6500, "monatlich", "Überweisung", 1, "variabel", ["Variabel"]),
+      A("Urlaub", 180000, "jaehrlich", "Überweisung", 1, "luxus", ["Jährlich fällig","Luxus"], 7),
+      A("Geschenke", 25000, "jaehrlich", "Bar", 1, "variabel", ["Jährlich fällig"], 12, konten.bar.id),
+      A("Taschengeld Kind", 3000, "monatlich", "Bar", 1, "fix", ["Fixkosten"], 1, konten.bar.id),
+      A("Waschmaschine (Ersatz)", 65000, "einmalig", "Überweisung", 15, "variabel", [], 10),
+
+      /* Sparposten — jeder mit eigenem Zinssatz, Bestand und Ziel */
+      A("Altersvorsorge ETF", 15000, "monatlich", "Dauerauftrag", 1, "fix", ["Sparen"], 1, null,
+        { zins:6, bestand:1240000, ziel:0 }),
+      A("Sparplan Tagesgeld", 25000, "monatlich", "Dauerauftrag", 28, "fix", ["Sparen"], 1, konten.tg.id,
+        { zins:2.4, bestand:412000, ziel:1500000 }),
+      A("Notgroschen", 10000, "monatlich", "Dauerauftrag", 28, "fix", ["Sparen"], 1, konten.tg.id,
+        { zins:2.4, bestand:180000, ziel:900000 }),
+      A("Rücklage Auto", 6000, "monatlich", "Dauerauftrag", 28, "fix", ["Sparen","Auto"], 1, konten.tg.id,
+        { zins:2.4, bestand:95000, ziel:400000 })
     ];
 
-    p.kategorien = Array.from(new Set(p.ausgaben.map(a => a.kategorie)));
     p.name = "Beispiel";
     S.profile.push(p);
     S.aktivesProfil = p.id;

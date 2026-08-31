@@ -160,11 +160,40 @@ Wenn du erst mal schauen willst, wie das Ganze aussieht: Tippe auf **Mit Beispie
 
 | Bereich | Was du dort machst |
 |---|---|
-| **Übersicht** | Die wichtigste Zahl: Was bleibt im Monat übrig. Dazu der Geldfluss, die Kategorien und die nächsten Abbuchungen. |
+| **Übersicht** | Die wichtigste Zahl: Was bleibt im Monat übrig — und wie viel davon fest verplant ist. Dazu der Geldfluss und die nächsten Abbuchungen. |
 | **Einnahmen** | Gehalt, Nebenjob, Kindergeld, Miete aus Untervermietung. |
-| **Ausgaben** | Alles, was rausgeht. Suchbar, filterbar, gruppierbar. |
-| **Auswertung** | Bar-Bedarf, Konten, Überweisungsplan, Kalender, Jahresverlauf, Notgroschen, Kündigungs-Kandidaten, „Was wäre wenn". |
-| **Einstellungen** | Konten, Tags, Kategorien, Profile, Sicherungen, Hell/Dunkel. |
+| **Ausgaben** | Alles, was rausgeht — und alles, was du zurücklegst. Suchbar, filterbar, gruppierbar. |
+| **Auswertung** | Vier Reiter: **Monatsanfang** (was muss wohin), **Ausgaben** (Diagramme), **Sparen** (Hochrechnung mit Zinsen und Inflation), **Analyse** (Quoten, Einsparpotenzial, Was-wäre-wenn). |
+| **Einstellungen** | Konten, Tags, Zahlungswege, Profile, Annahmen für die Hochrechnung, Sicherungen, Hell/Dunkel. |
+
+### Wie Lohnwerk rechnet — der wichtigste Punkt
+
+**Sparen ist keine Ausgabe.** Was du zur Seite legst, bleibt ja dein Geld. Deshalb gilt:
+
+```
+Einnahmen − Ausgaben = Überschuss
+Überschuss = fester Sparplan + frei verfügbar
+```
+
+Markierst du eine Position mit dem Tag **`Sparen`**, wandert sie aus den Ausgaben heraus und wird zu einem Sparposten. Dein Überschuss steigt dadurch — und das ist richtig so, denn das Geld ist nicht weg.
+
+Was am Monatsende übrig bleibt, zählt ebenfalls als gespart. Die Sparquote misst deshalb den ganzen Überschuss, nicht nur den festen Plan.
+
+### Sparen im Detail
+
+Jeder Sparposten bekommt **seinen eigenen Zinssatz**. Tagesgeld mit 2,4 %, ein Depot mit 6 % — Lohnwerk rechnet jeden Posten einzeln und addiert erst am Ende. Dazu trägst du ein, was **heute schon zurückgelegt** ist, und optional ein **Sparziel**.
+
+Der Reiter **Sparen** zeigt dann:
+
+- Was in 5, 10, 20 oder 30 Jahren daraus wird — mit Zinseszins
+- **Was das Geld dann real noch wert ist** (Inflationsrechner). 100.000 € in 20 Jahren fühlen sich an wie gut 67.000 € heute — die App sagt dir das offen.
+- Wie viel davon eingezahlt ist und wie viel Zinsen sind
+- Wie weit du bei jedem Ziel bist und wann du es erreichst
+- Einen Sparziel-Rechner zum Durchspielen
+
+**Lohnwerk erhöht deine Kontostände nie von allein.** Das wäre auch Unsinn — du kaufst ja zwischendurch etwas. Die Bestände änderst du nur dann, wenn sich wirklich etwas ändert. Alle Zukunftszahlen sind als Prognose gekennzeichnet, nicht als Kontostand.
+
+Die Annahmen für Inflation, jährliche Steigerung der Sparrate und den Zeitraum stellst du unter *Einstellungen → Annahmen für die Hochrechnung* ein.
 
 ### Kleine Kniffe, die viel sparen
 
@@ -173,7 +202,8 @@ Wenn du erst mal schauen willst, wie das Ganze aussieht: Tippe auf **Mit Beispie
 - **Monat / Jahr** oben rechts schaltet die *ganze* App um. Praktisch, um zu sehen, was ein Abo im Jahr wirklich kostet.
 - **Wischen auf dem Handy:** In der Ausgabenliste nach links wischen löscht, nach rechts wischen dupliziert.
 - **Versehentlich gelöscht?** Unten erscheint sechs Sekunden lang **Rückgängig**.
-- **Tags** sind das Herzstück. Markiere zum Beispiel alles, was du bar zahlst, mit `Bar` — dann weißt du auf den Cent genau, wie viel du abheben musst.
+- **Tags** sind das Herzstück — sie ersetzen die frühere Kategorie. Eine Position kann mehrere haben: `Auto`, `Versicherung`, `Jährlich fällig`. Das Tag `Sparen` ist fest eingebaut und macht aus einer Ausgabe einen Sparposten.
+- **Zahlungswege** kannst du selbst anlegen und benennen. Bar, Überweisung, Dauerauftrag, Lastschrift, Kreditkarte und Tagesgeld sind ab Werk dabei — ergänze, was du brauchst (PayPal, Kleingeldkasse, was auch immer). Ob ein Weg beim Punkt „Bar bereitlegen" mitzählt, entscheidet die Einstellung *Woher kommt das Geld*.
 - **Mehrere auf einmal ändern:** In der Ausgabenliste auf **Auswahl** tippen, mehrere Zeilen antippen, dann **Ändern**.
 - **Profile** sind komplette Datensätze zum Umschalten: „Aktuell", „Nach Gehaltserhöhung", „Wenn ich umziehe". Du verlierst dabei nichts.
 - **Was wäre wenn** (in der Auswertung): Schieberegler für Gehalt und Ausgaben. Das Ergebnis rechnet sofort mit, deine gespeicherten Daten bleiben unberührt.
@@ -241,8 +271,8 @@ Alternativ: Auf der Startseite des Repositories **Add file → Upload files**, d
 Nach ein bis zwei Minuten ist die neue Fassung online.
 
 > **Wichtig bei Aktualisierungen:** Weil die App offline funktioniert, hält sich der Browser eine Kopie. Damit die neue Fassung ankommt, muss in der Datei `sw.js` die Zeile
-> `const CACHE_NAME = "lohnwerk-v1";`
-> auf eine neue Nummer geändert werden — also `lohnwerk-v2`, `lohnwerk-v3` und so weiter.
+> `const CACHE_NAME = "lohnwerk-v2";`
+> auf eine neue Nummer geändert werden — also `lohnwerk-v3`, `lohnwerk-v4` und so weiter.
 > Danach die App schließen und neu öffnen; manchmal braucht es zwei Starts. **Deine Daten bleiben dabei erhalten.**
 
 ---
