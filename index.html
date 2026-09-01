@@ -3996,7 +3996,6 @@ function tagDetailDialog(eintrag, monat){
    ================================================================ */
 
 const AUSWERTUNG_REITER = [
-  { id:"start",     name:"Monatsblatt", icon:"ic-ausgaben" },
   { id:"ausgaben",  name:"Ausgaben",    icon:"ic-auswertung" },
   { id:"sparen",    name:"Sparen",      icon:"ic-sparen" },
   { id:"analyse",   name:"Analyse",     icon:"ic-wachstum" }
@@ -4044,8 +4043,7 @@ function zeichneAuswertung(){
   switch(UI.auswertungTab){
     case "sparen":    reiterSparen(box); break;
     case "analyse":   reiterAnalyse(box); break;
-    case "ausgaben":  reiterAusgaben(box); break;
-    default:          reiterMonatsblatt(box);
+    default:          reiterAusgaben(box);
   }
 }
 
@@ -4379,6 +4377,12 @@ function reiterAusgaben(wurzel){
       el("span",{ class:"t-label", text:"je Monat" })
     ),
     jahresverlaufZeichnen()
+  ));
+
+  /* Fälligkeitskalender — an welchem Tag geht was ab. */
+  wurzel.appendChild(el("div",{ class:"karte" },
+    el("div",{ class:"karte-kopf" }, el("h2",{ text:"Fälligkeiten" })),
+    kalenderZeichnen()
   ));
 }
 

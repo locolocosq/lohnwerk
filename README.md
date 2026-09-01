@@ -204,7 +204,7 @@ Oben auf der Übersicht schaltet ein Knopf zwischen dem Dashboard und der **einf
 
 ### Das Monatsblatt
 
-Der erste Reiter der Auswertung ist die schlichte Tabellenansicht: Einkommen oben, darunter je ein Block pro Zahlungsweg mit Monats- und Jahresbetrag, ganz unten die Ergebniszeilen.
+Die einfache Ansicht auf der Übersicht ist die schlichte Tabellenansicht: Einkommen oben, darunter je ein Block pro Zahlungsweg mit Monats- und Jahresbetrag, ganz unten die Ergebniszeilen.
 
 ```
 Einkommen                    3.930,67 €
@@ -351,8 +351,8 @@ Alternativ: Auf der Startseite des Repositories **Add file → Upload files**, d
 Nach ein bis zwei Minuten ist die neue Fassung online.
 
 > **Wichtig bei Aktualisierungen:** Weil die App offline funktioniert, hält sich der Browser eine Kopie. Damit die neue Fassung ankommt, muss in der Datei `sw.js` die Zeile
-> `const CACHE_NAME = "lohnwerk-v13";`
-> auf eine neue Nummer geändert werden — also `lohnwerk-v14`, `lohnwerk-v15` und so weiter.
+> `const CACHE_NAME = "lohnwerk-v14";`
+> auf eine neue Nummer geändert werden — also `lohnwerk-v15`, `lohnwerk-v16` und so weiter.
 > Danach die App schließen und neu öffnen; manchmal braucht es zwei Starts. **Deine Daten bleiben dabei erhalten.**
 
 ---
