@@ -358,6 +358,13 @@ Nach ein bis zwei Minuten ist die neue Fassung online.
 
 ## 10. Wenn etwas nicht klappt
 
+### Zuerst: Läuft die neueste Fassung?
+
+Unter *Mehr → Fassung* steht die Versionsnummer. Fehlt etwas, das es geben sollte, tippe dort auf **„Auf neue Fassung prüfen"** — das holt die aktuelle Version und startet die App neu. **Deine Daten bleiben dabei erhalten**, nur die Programmdateien werden erneuert.
+
+Das ist der schnellste Weg, wenn sich die App anders verhält als beschrieben.
+
+
 **Die Adresse zeigt „404 — There isn't a GitHub Pages site here."**
 Die Seite ist noch nicht fertig gebaut. Warte zwei Minuten und lade neu. Prüfe außerdem unter *Settings → Pages*, ob bei **Branch** wirklich `main` steht und du auf **Save** geklickt hast.
 

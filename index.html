@@ -1325,6 +1325,11 @@ details.klapp .klapp-inhalt{padding-bottom:var(--s4);}
    1. KONSTANTEN UND STAMMDATEN
    ================================================================ */
 
+/* Die Fassung der App. Sie steht in den Einstellungen, damit du prüfen
+   kannst, ob dein Gerät die neueste Version hat. Bei jeder Änderung
+   zusammen mit CACHE_NAME in sw.js hochzählen. */
+const APP_VERSION = "15";
+
 const SPEICHER_SCHLUESSEL = "lohnwerk.v1";
 const SPEICHER_DEFEKT = "lohnwerk.backup.defekt";
 const SCHEMA_VERSION = 2;
@@ -7373,8 +7378,59 @@ function zeichneEinstellungen(){
       icon("ic-muell"), "Alle Daten löschen")
   ));
 
+  /* --- Fassung und Update-Prüfung --- */
+  const versionsKarte = el("div",{ class:"karte flach" },
+    el("div",{ style:"display:flex;align-items:baseline;justify-content:space-between;gap:12px" },
+      el("span",{ class:"t-kapitaelchen", text:"Fassung" }),
+      el("span",{ style:"font-size:16px;font-weight:640;font-variant-numeric:tabular-nums", text:"v"+APP_VERSION })
+    ),
+    el("p",{ class:"t-klein", style:"margin-top:8px;line-height:1.55",
+      text:"Wenn dir etwas fehlt, das es geben sollte, läuft auf diesem Gerät womöglich eine ältere Fassung. "
+         + "Der Knopf holt die neueste und startet die App neu. Deine Daten bleiben dabei erhalten." })
+  );
+  versionsKarte.appendChild(el("button",{ class:"knopf rahmen breit", type:"button", style:"margin-top:14px",
+    onclick:(ev) => aufUpdatePruefen(ev.currentTarget) },
+    icon("ic-wiederkehr"), "Auf neue Fassung prüfen"));
+  wurzel.appendChild(versionsKarte);
+
   wurzel.appendChild(el("p",{ class:"t-klein", style:"text-align:center;padding:20px 0 0",
     text:"Lohnwerk · läuft ohne Internet · keine Konten, keine Werbung, kein Tracking" }));
+}
+
+/**
+ * Holt die neueste Fassung und startet die App neu.
+ * Nötig, weil der Browser die Programmdateien zwischenspeichert —
+ * ohne das kann eine alte Fassung hartnäckig hängenbleiben.
+ * Angerührt werden dabei nur die Programmdateien, nie deine Daten.
+ */
+async function aufUpdatePruefen(knopf){
+  const alt = knopf.innerHTML;
+  knopf.disabled = true;
+  knopf.replaceChildren(document.createTextNode("Wird geprüft …"));
+
+  /* Vor dem Neustart alles sichern, was noch aussteht. */
+  speichernSofort();
+
+  try{
+    if("serviceWorker" in navigator){
+      const regs = await navigator.serviceWorker.getRegistrations();
+      /* Den Zwischenspeicher der Programmdateien leeren — die Daten des
+         Nutzers liegen im localStorage und bleiben unberührt. */
+      if(window.caches){
+        const namen = await caches.keys();
+        await Promise.all(namen.filter(n => n.startsWith("lohnwerk-")).map(n => caches.delete(n)));
+      }
+      await Promise.all(regs.map(r => r.update().catch(() => r.unregister())));
+    }
+  }catch(fehler){ /* auch ohne Service Worker neu laden */ }
+
+  toast("Wird neu geladen …", null, 2500);
+  setTimeout(() => {
+    /* Ein Anhängsel an der Adresse umgeht auch hartnäckige Zwischenspeicher. */
+    const url = new URL(location.href);
+    url.searchParams.set("frisch", Date.now().toString(36));
+    location.replace(url.toString());
+  }, 600);
 }
 
 function zuruecksetzenDialog(){
