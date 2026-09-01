@@ -1218,8 +1218,6 @@ details.klapp .klapp-inhalt{padding-bottom:var(--s4);}
       <span>Lohnwerk</span>
     </div>
     <button class="sl-knopf" data-nav="uebersicht" aria-current="page"><svg aria-hidden="true"><use href="#ic-uebersicht"/></svg>Übersicht</button>
-    <button class="sl-knopf" data-nav="einnahmen"><svg aria-hidden="true"><use href="#ic-einnahmen"/></svg>Einnahmen</button>
-    <button class="sl-knopf" data-nav="ausgaben"><svg aria-hidden="true"><use href="#ic-ausgaben"/></svg>Ausgaben</button>
     <button class="sl-knopf" data-nav="auswertung"><svg aria-hidden="true"><use href="#ic-auswertung"/></svg>Auswertung</button>
     <button class="sl-knopf" data-nav="werkzeuge"><svg aria-hidden="true"><use href="#ic-ziel"/></svg>Werkzeuge</button>
     <button class="sl-knopf" data-nav="einstellungen"><svg aria-hidden="true"><use href="#ic-einstellungen"/></svg>Einstellungen</button>
@@ -1227,6 +1225,9 @@ details.klapp .klapp-inhalt{padding-bottom:var(--s4);}
 
   <div class="haupt">
     <header class="kopf" id="kopf">
+      <button class="sym" id="kopf-zurueck" aria-label="Zurück zu den Einstellungen" hidden>
+        <svg aria-hidden="true"><use href="#ic-links"/></svg>
+      </button>
       <div class="kopf-titel">
         <h1 id="kopf-h1">Übersicht</h1>
         <div class="unterzeile" id="kopf-unterzeile"></div>
@@ -1251,8 +1252,6 @@ details.klapp .klapp-inhalt{padding-bottom:var(--s4);}
   <!-- Tab-Leiste für das Handy -->
   <nav class="tableiste" aria-label="Hauptbereiche">
     <button class="tab" data-nav="uebersicht" aria-current="page"><svg aria-hidden="true"><use href="#ic-uebersicht"/></svg>Übersicht</button>
-    <button class="tab" data-nav="einnahmen"><svg aria-hidden="true"><use href="#ic-einnahmen"/></svg>Einnahmen</button>
-    <button class="tab" data-nav="ausgaben"><svg aria-hidden="true"><use href="#ic-ausgaben"/></svg>Ausgaben</button>
     <button class="tab" data-nav="auswertung"><svg aria-hidden="true"><use href="#ic-auswertung"/></svg>Auswertung</button>
     <button class="tab" data-nav="werkzeuge"><svg aria-hidden="true"><use href="#ic-ziel"/></svg>Werkzeuge</button>
     <button class="tab" data-nav="einstellungen"><svg aria-hidden="true"><use href="#ic-einstellungen"/></svg>Mehr</button>
@@ -2753,16 +2752,33 @@ const ANSICHT_TITEL = {
   auswertung:"Auswertung", werkzeuge:"Werkzeuge", einstellungen:"Einstellungen"
 };
 
+/* Diese Ansichten haben keinen eigenen Reiter mehr — sie werden aus den
+   Einstellungen heraus geöffnet und bekommen deshalb einen Rückweg. */
+const UNTERANSICHTEN = { einnahmen:"einstellungen", ausgaben:"einstellungen" };
+
 function navigieren(ziel){
   if(!ANSICHT_TITEL[ziel]) ziel = "uebersicht";
   aktiveAnsicht = ziel;
   UI.auswahlModus = false;
   UI.auswahl.clear();
   $$(".ansicht").forEach(a => a.classList.toggle("aktiv", a.id === "v-"+ziel));
+
+  /* Unteransichten markieren den Reiter, aus dem sie kommen. */
+  const reiter = UNTERANSICHTEN[ziel] || ziel;
   $$("[data-nav]").forEach(b => {
-    if(b.dataset.nav === ziel) b.setAttribute("aria-current","page");
+    if(b.dataset.nav === reiter) b.setAttribute("aria-current","page");
     else b.removeAttribute("aria-current");
   });
+
+  const zurueck = $("#kopf-zurueck");
+  if(UNTERANSICHTEN[ziel]){
+    zurueck.hidden = false;
+    zurueck.onclick = () => navigieren(UNTERANSICHTEN[ziel]);
+  } else {
+    zurueck.hidden = true;
+    zurueck.onclick = null;
+  }
+
   $("#kopf-h1").textContent = ANSICHT_TITEL[ziel];
   $("#inhalt").scrollTop = 0;
   window.scrollTo({ top:0, behavior:"instant" in window ? "instant" : "auto" });
@@ -7025,6 +7041,37 @@ function zeichneEinstellungen(){
   const wurzel = $("#v-einstellungen");
   wurzel.replaceChildren();
   const p = P();
+
+  /* --- Die Listen: Einnahmen und Ausgaben ---
+     Sie liegen hier statt in der Tab-Leiste, weil sie selten gebraucht
+     werden — eingetragen wird einmal, danach nur noch bei Änderungen. */
+  const eingabeKarte = el("div",{ class:"karte", style:"padding:0;overflow:hidden" });
+  const listenZeile = (iconId, name, anzahl, summeJahrWert, ziel) =>
+    el("div",{ class:"zeile-huelle" },
+      el("button",{ class:"zeile", type:"button", onclick:() => navigieren(ziel) },
+        el("span",{ style:"width:38px;height:38px;border-radius:10px;flex:none;display:flex;align-items:center;justify-content:center;background:var(--karte-2);color:var(--text-2)" },
+          icon(iconId, 19)),
+        el("div",{ class:"zeile-haupt" },
+          el("div",{ class:"zeile-name", text:name }),
+          el("div",{ class:"zeile-unter", text:`${anzahl} ${plural(anzahl,"Position","Positionen")}` })
+        ),
+        el("div",{ class:"zeile-rechts" },
+          el("div",{ class:"zeile-betrag", text:euroZ(summeJahrWert) })
+        ),
+        el("span",{ class:"zeile-pfeil" }, icon("ic-rechts"))
+      )
+    );
+
+  const kEin = summeJahr(aktiveEinnahmen());
+  const kAus = summeJahr(aktiveAusgaben());
+  eingabeKarte.appendChild(el("div",{ style:"padding:18px 20px 10px" },
+    el("h2",{ class:"t-h2", text:"Deine Zahlen" }),
+    el("p",{ class:"t-klein", style:"margin-top:4px;line-height:1.5",
+      text:"Hier trägst du ein, was reinkommt und rausgeht. Danach musst du nur ran, wenn sich etwas ändert." })
+  ));
+  eingabeKarte.appendChild(listenZeile("ic-einnahmen", "Einnahmen", p.einnahmen.length, kEin, "einnahmen"));
+  eingabeKarte.appendChild(listenZeile("ic-ausgaben", "Ausgaben und Sparen", p.ausgaben.length, kAus, "ausgaben"));
+  wurzel.appendChild(eingabeKarte);
 
   /* --- Profile / Szenarien --- */
   const profilKarte = el("div",{ class:"karte" },
