@@ -3997,8 +3997,8 @@ function tagDetailDialog(eintrag, monat){
 
 const AUSWERTUNG_REITER = [
   { id:"ausgaben",  name:"Ausgaben",    icon:"ic-auswertung" },
-  { id:"sparen",    name:"Sparen",      icon:"ic-sparen" },
-  { id:"analyse",   name:"Analyse",     icon:"ic-wachstum" }
+  { id:"analyse",   name:"Analyse",     icon:"ic-wachstum" },
+  { id:"sparen",    name:"Sparen",      icon:"ic-sparen" }
 ];
 
 /* Die Rechner im gleichnamigen Reiter. Sie stehen nicht untereinander,
@@ -4007,7 +4007,9 @@ const RECHNER = [
   { id:"zakat",     name:"Zakat-Rechner",   icon:"ic-ziel",
     beschreibung:"Wie viel Zakat fällig wird — nach Hanafi oder Schafi'i, mit Abgleich deiner laufenden Spenden." },
   { id:"vermoegen", name:"Vermögensrechner", icon:"ic-wachstum",
-    beschreibung:"Was aus Kapital wird, das Gewinn abwirft. Mit Kaufkraft nach Inflation." }
+    beschreibung:"Was aus Kapital wird, das Gewinn abwirft. Mit Kaufkraft nach Inflation." },
+  { id:"sparziel",  name:"Sparziel-Rechner",  icon:"ic-ziel",
+    beschreibung:"Wie lange dauert es bis zu einem Wunschbetrag — und was ist er dann noch wert?" }
 ];
 
 function zeichneAuswertung(){
@@ -4550,9 +4552,6 @@ function reiterSparen(wurzel){
     wurzel.appendChild(karte);
   }
 
-  /* --- Sparziel-Rechner --- */
-  wurzel.appendChild(sparzielRechner());
-
   /* --- Notgroschen --- */
   const bedarf3 = notgroschenBedarf(3);
   const bedarf6 = notgroschenBedarf(6);
@@ -4567,8 +4566,12 @@ function reiterSparen(wurzel){
     const anteil = ziel > 0 ? klemmen(stand/ziel*100, 0, 100) : 0;
     wurzel.appendChild(el("div",{ class:"karte" },
       el("div",{ class:"karte-kopf" }, el("h2",{ text:"Notgroschen" })),
+      el("p",{ class:"t-body", style:"color:var(--text-2);line-height:1.55;margin-bottom:12px",
+        text:"Geld, das einfach nur bereitliegt, falls etwas Unvorhergesehenes passiert: Die Waschmaschine "
+           + "gibt auf, das Auto muss in die Werkstatt, oder du hast plötzlich weniger Einkommen. "
+           + "Damit du in so einem Fall nichts auf Raten kaufen oder dir etwas leihen musst." }),
       el("p",{ class:"t-body", style:"color:var(--text-2);line-height:1.5",
-        html:`Deine festen Kosten für drei Monate: <strong style="color:var(--text)">${euro(bedarf3)}</strong>. Für sechs Monate: ${euro(bedarf6)}.` }),
+        html:`Als Faustregel gelten deine <strong style="color:var(--text)">festen Kosten für drei Monate</strong> — bei dir ${euro(bedarf3)}. Wer es ruhiger mag, nimmt sechs Monate: ${euro(bedarf6)}.` }),
       el("div",{ class:"fortschritt" }, el("div",{ style:`width:${anteil}%` })),
       el("div",{ style:"display:flex;justify-content:space-between;font-size:13px;color:var(--text-2);font-variant-numeric:tabular-nums" },
         el("span",{ text:`${euro(stand)} zurückgelegt` }),
@@ -4591,10 +4594,12 @@ function sparzielRechner(){
   const u = sparUebersicht();
   const karte = el("div",{ class:"karte" });
   karte.appendChild(el("div",{ class:"karte-kopf" },
-    el("h2",{ text:"Sparziel durchrechnen" })
+    el("h2",{ text:"Sparziel-Rechner" })
   ));
-  karte.appendChild(el("p",{ class:"t-klein", style:"margin-top:-8px;margin-bottom:18px;line-height:1.5",
-    text:"Ein Rechner zum Ausprobieren — er ändert nichts an deinen Daten." }));
+  karte.appendChild(el("p",{ class:"t-klein", style:"margin-top:-8px;margin-bottom:18px;line-height:1.55",
+    text:"Trag einen Wunschbetrag ein — der Rechner sagt dir, wie lange du dafür brauchst und wann du es "
+       + "erreicht hast. Die Vorgaben kommen aus deinen echten Zahlen, ändern lassen sie sich aber frei. "
+       + "An deinen gespeicherten Daten ändert der Rechner nichts." }));
 
   let zielCent = 1000000;      // 10.000 €
   let start = u.bestandGesamt;
@@ -4762,13 +4767,14 @@ function zeichneWerkzeuge(){
       icon("ic-links"), "Alle Werkzeuge"));
     if(UI.rechnerOffen === "zakat") wurzel.appendChild(zakatRechner());
     else if(UI.rechnerOffen === "vermoegen") wurzel.appendChild(vermoegensRechner());
+    else if(UI.rechnerOffen === "sparziel") wurzel.appendChild(sparzielRechner());
     else { UI.rechnerOffen = null; zeichneWerkzeuge(); }
     return;
   }
 
   /* Sonst die Auswahl. */
   wurzel.appendChild(el("p",{ class:"t-klein", style:"margin-bottom:16px;line-height:1.55",
-    text:"Zwei Rechner zum Ausprobieren. Beide arbeiten nur mit dem, was du dort eintippst, "
+    text:"Drei Rechner zum Ausprobieren. Sie arbeiten nur mit dem, was du dort eintippst, "
        + "und ändern nichts an deinen Positionen — außer du drückst ausdrücklich einen Knopf dafür." }));
 
   RECHNER.forEach(r => {

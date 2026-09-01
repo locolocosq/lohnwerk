@@ -161,7 +161,7 @@ Wenn du erst mal schauen willst, wie das Ganze aussieht: Tippe auf **Mit Beispie
 | Bereich | Was du dort machst |
 |---|---|
 | **Übersicht** | Die wichtigste Zahl: Was bleibt im Monat übrig — und wie viel davon fest verplant ist. Dazu der Geldfluss und die nächsten Abbuchungen. Ein Knopf schaltet auf die einfache Tabellenansicht um. |
-| **Werkzeuge** | Zakat-Rechner und Vermögensrechner, einzeln anklickbar. |
+| **Werkzeuge** | Zakat-Rechner, Vermögensrechner und Sparziel-Rechner, einzeln anklickbar. |
 | **Auswertung** | Vier Reiter: **Monatsblatt** (die schlichte Tabellenansicht), **Ausgaben** (Diagramme), **Sparen** (Hochrechnung mit Rendite und Inflation), **Analyse** (Quoten, Einsparpotenzial, Was-wäre-wenn), **Werkzeuge** (Vermögensrechner, Zakat-Rechner). |
 | **Einstellungen** | **Deine Zahlen** (Einnahmen und Ausgaben eintragen), Zakat-Vermögen, Konten, Tags, Zahlungswege, Profile, Annahmen für die Hochrechnung, Sicherungen, Hell/Dunkel. |
 
@@ -190,7 +190,6 @@ Der Reiter **Sparen** zeigt dann:
 - **Was das Geld dann real noch wert ist** (Inflationsrechner). 100.000 € in 20 Jahren fühlen sich an wie gut 67.000 € heute — die App sagt dir das offen.
 - Wie viel davon eingezahlt ist und wie viel Zinsen sind
 - Wie weit du bei jedem Ziel bist und wann du es erreichst
-- Einen Sparziel-Rechner zum Durchspielen
 
 **Lohnwerk erhöht deine Kontostände nie von allein.** Das wäre auch Unsinn — du kaufst ja zwischendurch etwas. Die Bestände änderst du nur dann, wenn sich wirklich etwas ändert. Alle Zukunftszahlen sind als Prognose gekennzeichnet, nicht als Kontostand.
 
@@ -351,8 +350,8 @@ Alternativ: Auf der Startseite des Repositories **Add file → Upload files**, d
 Nach ein bis zwei Minuten ist die neue Fassung online.
 
 > **Wichtig bei Aktualisierungen:** Weil die App offline funktioniert, hält sich der Browser eine Kopie. Damit die neue Fassung ankommt, muss in der Datei `sw.js` die Zeile
-> `const CACHE_NAME = "lohnwerk-v14";`
-> auf eine neue Nummer geändert werden — also `lohnwerk-v15`, `lohnwerk-v16` und so weiter.
+> `const CACHE_NAME = "lohnwerk-v15";`
+> auf eine neue Nummer geändert werden — also `lohnwerk-v16`, `lohnwerk-v17` und so weiter.
 > Danach die App schließen und neu öffnen; manchmal braucht es zwei Starts. **Deine Daten bleiben dabei erhalten.**
 
 ---
