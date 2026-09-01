@@ -1329,7 +1329,7 @@ details.klapp .klapp-inhalt{padding-bottom:var(--s4);}
 /* Die Fassung der App. Sie steht in den Einstellungen, damit du prüfen
    kannst, ob dein Gerät die neueste Version hat. Bei jeder Änderung
    zusammen mit CACHE_NAME in sw.js hochzählen. */
-const APP_VERSION = "17";
+const APP_VERSION = "18";
 
 const SPEICHER_SCHLUESSEL = "lohnwerk.v1";
 const SPEICHER_DEFEKT = "lohnwerk.backup.defekt";
@@ -5586,7 +5586,40 @@ function zakatRechner(){
       el("p",{ class:"t-klein", style:"margin-top:8px;line-height:1.55",
         text: pflichtig
           ? `2,5 % von ${euro(v.netto)}. Voraussetzung ist, dass dein Vermögen ein islamisches Mondjahr lang über der Schwelle lag.`
-          : `Dein Vermögen von ${euro(v.netto)} liegt unter der Schwelle von ${euro(nisab)}. Dann ist keine Zakat fällig.` })
+          : `Dein Vermögen von ${euro(v.netto)} liegt unter der Schwelle von ${euro(nisab)}. Dann ist keine Zakat fällig.` }),
+
+      /* Was davon bereits überwiesen ist und was noch aussteht. */
+      pflichtig ? (() => {
+        const bezahlt = e.zakat.bezahltCent || 0;
+        const rest = betrag - bezahlt;
+        const block = el("div",{ style:"margin-top:16px;padding-top:14px;border-top:1px solid var(--linie)" });
+
+        block.appendChild(el("div",{ style:"display:flex;align-items:baseline;justify-content:space-between;gap:12px" },
+          el("span",{ class:"t-label", text:"Davon schon entrichtet" }),
+          el("span",{ style:`font-size:16px;font-weight:600;font-variant-numeric:tabular-nums;color:${bezahlt > 0 ? "var(--gruen)" : "var(--text-2)"}`,
+            text: bezahlt > 0 ? "− "+euro(bezahlt) : euro(0) })
+        ));
+
+        block.appendChild(el("div",{ style:"display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-top:10px;padding-top:10px;border-top:1.5px solid var(--linie-stark)" },
+          el("span",{ style:"font-size:15px;font-weight:650",
+            text: rest <= 0 ? "Vollständig entrichtet" : "Bleibt zu zahlen" }),
+          el("span",{ style:`font-size:24px;font-weight:650;letter-spacing:-.02em;font-variant-numeric:tabular-nums;color:${rest <= 0 ? "var(--gruen)" : "var(--text)"}`,
+            text: rest <= 0 ? euro(0) : euro(rest) })
+        ));
+
+        if(rest < 0){
+          block.appendChild(el("p",{ class:"t-klein", style:"margin-top:8px;line-height:1.5",
+            text:`Du hast ${euro(-rest)} mehr gegeben, als die Rechnung ergibt. Das Zuviel gilt als freiwillige Gabe.` }));
+        } else if(rest > 0 && bezahlt > 0){
+          block.appendChild(el("p",{ class:"t-klein", style:"margin-top:8px;line-height:1.5",
+            text:`Bis zum Stichtag fehlen noch ${euro(rest)} — das sind ${euro(Math.round(rest/12))} im Monat, wenn du es über ein Jahr verteilst.` }));
+        }
+
+        block.appendChild(el("button",{ class:"knopf klein rahmen", type:"button", style:"margin-top:12px",
+          onclick:() => navigieren("zakat") },
+          icon("ic-stift"), bezahlt > 0 ? "Betrag ändern" : "Entrichtetes eintragen"));
+        return block;
+      })() : null
     ));
 
     if(pflichtig && proMonat > 0){
