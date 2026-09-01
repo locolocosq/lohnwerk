@@ -1245,6 +1245,7 @@ details.klapp .klapp-inhalt{padding-bottom:var(--s4);}
       <section class="ansicht" id="v-ausgaben" role="region" aria-label="Ausgaben"></section>
       <section class="ansicht" id="v-auswertung" role="region" aria-label="Auswertung"></section>
       <section class="ansicht" id="v-werkzeuge" role="region" aria-label="Werkzeuge"></section>
+      <section class="ansicht" id="v-zakat" role="region" aria-label="Zakat-Einstellungen"></section>
       <section class="ansicht" id="v-einstellungen" role="region" aria-label="Einstellungen"></section>
     </main>
   </div>
@@ -1328,7 +1329,7 @@ details.klapp .klapp-inhalt{padding-bottom:var(--s4);}
 /* Die Fassung der App. Sie steht in den Einstellungen, damit du prüfen
    kannst, ob dein Gerät die neueste Version hat. Bei jeder Änderung
    zusammen mit CACHE_NAME in sw.js hochzählen. */
-const APP_VERSION = "16";
+const APP_VERSION = "17";
 
 const SPEICHER_SCHLUESSEL = "lohnwerk.v1";
 const SPEICHER_DEFEKT = "lohnwerk.backup.defekt";
@@ -2758,12 +2759,12 @@ function bestaetigen({ titel, text, knopfText = "Bestätigen", gefahr = false, e
 
 const ANSICHT_TITEL = {
   uebersicht:"Übersicht", einnahmen:"Einnahmen", ausgaben:"Ausgaben",
-  auswertung:"Auswertung", werkzeuge:"Werkzeuge", einstellungen:"Einstellungen"
+  auswertung:"Auswertung", werkzeuge:"Werkzeuge", zakat:"Zakat", einstellungen:"Einstellungen"
 };
 
 /* Diese Ansichten haben keinen eigenen Reiter mehr — sie werden aus den
    Einstellungen heraus geöffnet und bekommen deshalb einen Rückweg. */
-const UNTERANSICHTEN = { einnahmen:"einstellungen", ausgaben:"einstellungen" };
+const UNTERANSICHTEN = { einnahmen:"einstellungen", ausgaben:"einstellungen", zakat:"einstellungen" };
 
 function navigieren(ziel){
   if(!ANSICHT_TITEL[ziel]) ziel = "uebersicht";
@@ -5247,383 +5248,491 @@ async function btcKursHolen(usdEurKurs){
   throw new Error("Kein Bitcoin-Kurs erreichbar");
 }
 
-function zakatRechner(){
-  const karte = el("div",{ class:"karte" });
-  karte.appendChild(el("div",{ class:"karte-kopf" },
-    el("h2",{ text:"Zakat-Rechner" })
+/* ================================================================
+   ZAKAT — EINSTELLEN UND RECHNEN
+
+   Getrennt in zwei Orte:
+   · Einstellungen → Zakat: alles, was gepflegt wird
+   · Werkzeuge → Zakat-Rechner: nur das Ergebnis
+   ================================================================ */
+
+/** Die Schwelle in Cent nach der gewählten Grundlage. */
+function zakatNisab(){
+  const e = S.einstellungen;
+  return e.zakat.grundlage === "silber"
+    ? Math.round(NISAB_SILBER_GRAMM * (e.silberPreisCent || 0))
+    : Math.round(NISAB_GOLD_GRAMM * (e.goldPreisCent || 0));
+}
+
+/** Fehlt der Preis, auf dem die Schwelle beruht? */
+function zakatGrundpreisFehlt(){
+  const e = S.einstellungen;
+  return e.zakat.grundlage === "silber" ? !(e.silberPreisCent > 0) : !(e.goldPreisCent > 0);
+}
+
+/** Die fällige Zakat als Jahresbetrag in Cent — 0, wenn nicht pflichtig. */
+function zakatFaellig(){
+  const v = zakatVermoegen();
+  const nisab = zakatNisab();
+  if(zakatGrundpreisFehlt() || nisab <= 0 || v.netto < nisab) return 0;
+  return Math.round(v.netto * ZAKAT_SATZ);
+}
+
+/* ----------------------------------------------------------------
+   ANSICHT: ZAKAT-EINSTELLUNGEN
+   ---------------------------------------------------------------- */
+function zeichneZakatEinstellungen(){
+  const wurzel = $("#v-zakat");
+  wurzel.replaceChildren();
+  const e = S.einstellungen;
+
+  /* --- Rechtsschule und Grundlage --- */
+  const schuleKarte = el("div",{ class:"karte" });
+  schuleKarte.appendChild(el("div",{ class:"karte-kopf" }, el("h2",{ text:"Rechtsschule" })));
+  schuleKarte.appendChild(el("div",{ class:"segment breit", role:"group", "aria-label":"Rechtsschule" },
+    el("button",{ type:"button", "aria-pressed": e.zakat.schule === "hanafi" ? "true":"false",
+      text:"Hanafi", onclick:() => {
+        e.zakat.schule = "hanafi"; e.zakat.grundlage = "silber"; aendern();
+      }}),
+    el("button",{ type:"button", "aria-pressed": e.zakat.schule === "schafii" ? "true":"false",
+      text:"Schafi'i", onclick:() => {
+        e.zakat.schule = "schafii"; e.zakat.grundlage = "gold"; aendern();
+      }})
   ));
-  karte.appendChild(el("p",{ class:"t-klein", style:"margin-top:-8px;margin-bottom:20px;line-height:1.55",
-    text:"Rechnet aus, ob du zakatpflichtig bist und wie viel fällig wird. "
-       + "Trag die Werte ein, die du am Stichtag besitzt." }));
+  schuleKarte.appendChild(el("p",{ class:"t-klein", style:"margin-top:10px;line-height:1.55",
+    text: e.zakat.schule === "hanafi"
+      ? "Gold, Silber, Bargeld und Handelsware werden zusammengezählt. Fällige Schulden darfst du abziehen."
+      : "Gold und Silber werden getrennt betrachtet, jedes mit eigener Schwelle. Schulden werden klassisch nicht abgezogen." }));
 
-  /* Die zuletzt eingetragenen Werte übernehmen. */
-  const gespeichert = S.einstellungen.zakat || {};
-  const Z = {
-    schule: gespeichert.schule || "hanafi",        // hanafi | schafii
-    grundlage: gespeichert.grundlage || "silber",  // silber | gold
-    goldPreis: 0,            // Cent je Gramm
-    silberPreis: 0,          // Cent je Gramm
-    bargeld: 0, guthaben: 0, goldGramm: 0, silberGramm: 0,
-    handelsware: 0, anlagen: 0, forderungen: 0, schulden: 0
-  };
+  schuleKarte.appendChild(el("div",{ class:"feld", style:"margin-top:18px;margin-bottom:0" },
+    el("div",{ class:"feld-label", text:"Grundlage für die Schwelle" }),
+    el("div",{ class:"segment breit", role:"group", "aria-label":"Grundlage des Nisab" },
+      el("button",{ type:"button", "aria-pressed": e.zakat.grundlage === "silber" ? "true":"false",
+        text:"Silber (595 g)", onclick:() => { e.zakat.grundlage = "silber"; aendern(); }}),
+      el("button",{ type:"button", "aria-pressed": e.zakat.grundlage === "gold" ? "true":"false",
+        text:"Gold (85 g)", onclick:() => { e.zakat.grundlage = "gold"; aendern(); }})
+    ),
+    el("div",{ class:"feld-hinweis",
+      text: e.zakat.grundlage === "silber"
+        ? "Die Silberschwelle liegt niedriger — dadurch werden mehr Menschen zakatpflichtig. In der hanafitischen Praxis der übliche Maßstab."
+        : "Die Goldschwelle liegt höher. In der schafiitischen Praxis für Bargeld der übliche Maßstab." })
+  ));
+  wurzel.appendChild(schuleKarte);
 
-  /** Merkt sich alle Eingaben, damit sie beim nächsten Mal wieder da sind. */
-  /* Merkt Rechtsschule und Grundlage. Die Postenliste bleibt unangetastet —
-     sie wird über den Posten-Dialog gepflegt. */
-  const merken = () => {
-    S.einstellungen.zakat.schule = Z.schule;
-    S.einstellungen.zakat.grundlage = Z.grundlage;
-    S.einstellungen.zakat.stand = new Date().toISOString();
-    speichern();
-  };
+  /* --- Tagespreise --- */
+  wurzel.appendChild(zakatPreisKarte(() => zeichnen()));
 
-  /* --- Rechtsschule --- */
-  const schuleWahl = el("div",{ class:"segment breit", role:"group", "aria-label":"Rechtsschule" },
-    el("button",{ type:"button", "aria-pressed": Z.schule === "hanafi" ? "true":"false", text:"Hanafi", onclick:(e) => {
-      Z.schule = "hanafi"; Z.grundlage = "silber";
-      e.target.parentElement.children[0].setAttribute("aria-pressed","true");
-      e.target.parentElement.children[1].setAttribute("aria-pressed","false");
-      grundlageAktualisieren(); rechnen();
-    }}),
-    el("button",{ type:"button", "aria-pressed": Z.schule === "schafii" ? "true":"false", text:"Schafi'i", onclick:(e) => {
-      Z.schule = "schafii"; Z.grundlage = "gold";
-      e.target.parentElement.children[0].setAttribute("aria-pressed","false");
-      e.target.parentElement.children[1].setAttribute("aria-pressed","true");
-      grundlageAktualisieren(); rechnen();
-    }})
+  /* --- Vermögensposten --- */
+  const postenKarte = el("div",{ class:"karte" },
+    el("div",{ class:"karte-kopf" },
+      el("h2",{ text:"Dein Vermögen" }),
+      el("button",{ class:"knopf leise klein", type:"button",
+        onclick:() => zakatPostenDialog(null, () => zeichnen()) },
+        icon("ic-plus"), "Neu")
+    ),
+    el("p",{ class:"t-klein", style:"margin-top:-8px;margin-bottom:14px;line-height:1.5",
+      text:"Konten, Gold, Silber, Bitcoin. Du kannst so viele Posten anlegen, wie du brauchst — "
+         + "etwa mehrere Tagesgeldkonten mit eigenem Namen." })
   );
-  karte.appendChild(el("div",{ class:"feld" },
-    el("div",{ class:"feld-label", text:"Rechtsschule" }), schuleWahl,
-    el("div",{ class:"feld-hinweis", id:"zk-schule-hinweis", text:"" })
-  ));
 
-  /* --- Grundlage für den Nisab --- */
-  const grundlageWahl = el("div",{ class:"segment breit", role:"group", "aria-label":"Grundlage des Nisab" },
-    el("button",{ type:"button", "aria-pressed":"true", text:"Silber (595 g)", onclick:(e) => {
-      Z.grundlage = "silber"; grundlageAktualisieren(); rechnen();
-    }}),
-    el("button",{ type:"button", "aria-pressed":"false", text:"Gold (85 g)", onclick:(e) => {
-      Z.grundlage = "gold"; grundlageAktualisieren(); rechnen();
-    }})
-  );
-  karte.appendChild(el("div",{ class:"feld" },
-    el("div",{ class:"feld-label", text:"Grundlage für die Schwelle" }), grundlageWahl,
-    el("div",{ class:"feld-hinweis", id:"zk-grundlage-hinweis", text:"" })
-  ));
-
-  function grundlageAktualisieren(){
-    const k = grundlageWahl.children;
-    k[0].setAttribute("aria-pressed", Z.grundlage === "silber" ? "true":"false");
-    k[1].setAttribute("aria-pressed", Z.grundlage === "gold" ? "true":"false");
-    const sh = $("#zk-schule-hinweis", karte);
-    const gh = $("#zk-grundlage-hinweis", karte);
-    if(sh) sh.textContent = Z.schule === "hanafi"
-      ? "Hanafi: Gold, Silber, Bargeld und Handelsware werden zusammengezählt. Fällige Schulden darfst du abziehen."
-      : "Schafi'i: Gold und Silber werden getrennt betrachtet, jedes mit eigener Schwelle. Schulden werden klassisch nicht abgezogen.";
-    if(gh) gh.textContent = Z.grundlage === "silber"
-      ? "Die Silberschwelle liegt niedriger — dadurch werden mehr Menschen zakatpflichtig. In der hanafitischen Praxis ist das der übliche Maßstab."
-      : "Die Goldschwelle liegt höher. Sie ist in der schafiitischen Praxis für Bargeld der übliche Maßstab.";
+  const posten = zakatPosten();
+  if(posten.length === 0){
+    postenKarte.appendChild(el("button",{ class:"knopf rahmen breit", type:"button",
+      onclick:() => zakatVorlagenAnlegen(() => zeichnen()) },
+      icon("ic-plus"), "Übliche Posten anlegen"));
+  } else {
+    posten.forEach(p => {
+      const art = ZAKAT_ARTEN[p.art];
+      const wert = zakatPostenWert(p);
+      const fehlt = zakatPreisFehlt(p);
+      postenKarte.appendChild(el("div",{ class:"datenzeile", style:"align-items:center" },
+        el("button",{ type:"button", style:"flex:1;text-align:left;min-width:0;display:flex;align-items:center;gap:11px;min-height:44px",
+          onclick:() => zakatPostenDialog(p, () => zeichnen()) },
+          (() => { const s = icon(art.icon); s.style.width="18px"; s.style.height="18px"; s.style.flex="none";
+                   s.style.color = p.art==="schuld" ? "var(--rot)" : "var(--text-2)"; return s; })(),
+          el("span",{ style:"min-width:0" },
+            el("span",{ style:"display:block;font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap", text:p.name }),
+            el("span",{ style:"display:block;font-size:12.5px;color:var(--text-2)",
+              text: art.geld ? art.name
+                  : `${p.art==="btc" ? nfBtc.format(p.wert) : nfZahl.format(p.wert).replace(",00","")} ${art.einheit}`
+                    + (fehlt ? " · Tagespreis fehlt" : "") })
+          )
+        ),
+        el("span",{ style:`font-variant-numeric:tabular-nums;font-weight:600;white-space:nowrap;${p.art==="schuld"?"color:var(--rot)":""}`,
+          text: fehlt ? "—" : (p.art==="schuld" ? "− " : "") + euro(wert) })
+      ));
+    });
+    const v = zakatVermoegen();
+    postenKarte.appendChild(el("div",{ style:"display:flex;justify-content:space-between;gap:12px;align-items:baseline;margin-top:14px;padding-top:12px;border-top:1.5px solid var(--linie-stark)" },
+      el("span",{ class:"t-label", style:"font-weight:650", text:"Zakatpflichtig" }),
+      el("span",{ style:"font-size:18px;font-weight:650;font-variant-numeric:tabular-nums", text:euro(v.netto) })
+    ));
   }
+  wurzel.appendChild(postenKarte);
 
-  /* --- Preise: zuletzt benutzte Werte vorbelegen --- */
-  const goldFeld = betragsFeld(S.einstellungen.goldPreisCent || 0, "Goldpreis je Gramm");
-  goldFeld.feld.removeAttribute("data-autofokus");
-  goldFeld.feld.placeholder = "Tagespreis";
-  const silberFeld = betragsFeld(S.einstellungen.silberPreisCent || 0, "Silberpreis je Gramm");
-  silberFeld.feld.removeAttribute("data-autofokus");
-  silberFeld.feld.placeholder = "Tagespreis";
-  const btcFeld = betragsFeld(S.einstellungen.btcPreisCent || 0, "Bitcoin-Kurs je BTC");
-  btcFeld.feld.removeAttribute("data-autofokus");
-  btcFeld.feld.placeholder = "Tagespreis";
+  /* --- Stichtag mit islamischem Kalender --- */
+  const stichKarte = el("div",{ class:"karte" });
+  stichKarte.appendChild(el("div",{ class:"karte-kopf" }, el("h2",{ text:"Stichtag" })));
+  stichKarte.appendChild(stichtagBereich());
+  wurzel.appendChild(stichKarte);
 
-  const standZeile = el("p",{ class:"t-klein", style:"line-height:1.55" });
-  const standAktualisieren = () => {
-    const stand = S.einstellungen.preiseStand;
-    if(!stand){
-      standZeile.textContent = "Noch keine Preise hinterlegt.";
-      return;
-    }
-    const tage = tageSeit(stand);
-    const woher = S.einstellungen.preiseAusNetz ? "abgerufen" : "von dir eingetragen";
-    standZeile.textContent = `Zuletzt ${woher}: ${datumLesbar(stand)}`
-      + (tage === 0 ? " (heute)" : tage === 1 ? " (gestern)" : tage !== null ? ` (vor ${tage} Tagen)` : "")
-      + (tage !== null && tage > 3 ? " — Edelmetallpreise schwanken täglich, hol sie am besten neu." : "");
+  /* --- Schon bezahlte Zakat --- */
+  wurzel.appendChild(zakatBezahltKarte());
+
+  /* --- Weg zum Rechner --- */
+  wurzel.appendChild(el("button",{ class:"knopf primaer breit", type:"button", style:"margin-top:4px",
+    onclick:() => { UI.rechnerOffen = "zakat"; navigieren("werkzeuge"); } },
+    icon("ic-ziel"), "Ergebnis im Rechner ansehen"));
+}
+
+/** Die Karte mit den Tagespreisen und dem Abruf-Knopf. */
+function zakatPreisKarte(danach){
+  const e = S.einstellungen;
+  const karte = el("div",{ class:"karte" });
+  karte.appendChild(el("div",{ class:"karte-kopf" }, el("h2",{ text:"Tagespreise" })));
+
+  const feld = (schluessel, beschriftung) => {
+    const f = betragsFeld(e[schluessel] || 0, beschriftung);
+    f.feld.removeAttribute("data-autofokus");
+    f.feld.placeholder = "Tagespreis";
+    const hinweis = f.box.querySelector(".feld-hinweis");
+    if(hinweis) hinweis.remove();
+    f.feld.addEventListener("change", () => {
+      const wert = Math.max(0, f.wert() ?? 0);
+      if(wert === (e[schluessel] || 0)) return;
+      e[schluessel] = wert;
+      e.preiseStand = new Date().toISOString();
+      e.preiseAusNetz = false;
+      aendern();
+    });
+    return f.box;
   };
-  standAktualisieren();
 
-  const holKnopf = el("button",{ class:"knopf primaer breit", type:"button",
-    onclick:() => preiseAbrufen() }, icon("ic-wiederkehr"), "Tagespreis holen");
+  karte.appendChild(feld("goldPreisCent", "Goldpreis je Gramm"));
+  karte.appendChild(feld("silberPreisCent", "Silberpreis je Gramm"));
+  karte.appendChild(feld("btcPreisCent", "Bitcoin-Kurs je BTC"));
 
-  async function preiseAbrufen(){
-    /* Beim allerersten Mal erklären, was dabei passiert. */
-    if(!S.einstellungen.kurseErlaubt){
+  const holKnopf = el("button",{ class:"knopf primaer breit", type:"button" },
+    icon("ic-wiederkehr"), "Tagespreise holen");
+  holKnopf.onclick = () => {
+    if(!e.kurseErlaubt){
       bestaetigen({
         titel:"Kurse aus dem Internet holen?",
-        text:"Lohnwerk fragt dann bei zwei öffentlichen Preisdiensten nach dem heutigen Gold- und Silberkurs "
-           + "und rechnet ihn in Euro je Gramm um. Von deinen Zahlen wird dabei nichts übertragen — es geht nur "
-           + "die Frage nach dem Kurs hinaus. Alles andere in Lohnwerk bleibt offline.",
+        text:"Lohnwerk fragt dann bei öffentlichen Preisdiensten nach den heutigen Kursen für Gold, Silber "
+           + "und Bitcoin. Von deinen Zahlen wird dabei nichts übertragen — es geht nur die Frage nach dem "
+           + "Kurs hinaus. Alles andere in Lohnwerk bleibt offline.",
         knopfText:"Einverstanden, holen",
-        dann:() => { S.einstellungen.kurseErlaubt = true; speichern(); wirklichAbrufen(); }
+        dann:() => { e.kurseErlaubt = true; speichern(); preiseAbrufen(holKnopf, danach); }
       });
       return;
     }
-    wirklichAbrufen();
+    preiseAbrufen(holKnopf, danach);
+  };
+  karte.appendChild(holKnopf);
+
+  /* Stand der Preise */
+  const tage = tageSeit(e.preiseStand);
+  karte.appendChild(el("p",{ class:"t-klein", style:"margin-top:12px;line-height:1.55",
+    text: !e.preiseStand ? "Noch keine Preise hinterlegt."
+      : `Zuletzt ${e.preiseAusNetz ? "abgerufen" : "von dir eingetragen"}: ${datumLesbar(e.preiseStand)}`
+        + (tage === 0 ? " (heute)" : tage === 1 ? " (gestern)" : tage !== null ? ` (vor ${tage} Tagen)` : "")
+        + (tage !== null && tage > 3 ? " — Kurse schwanken täglich, hol sie am besten neu." : "") }));
+  karte.appendChild(el("p",{ class:"t-klein", style:"margin-top:8px;line-height:1.55",
+    text:"Der Knopf ist die einzige Stelle, an der Lohnwerk etwas aus dem Internet lädt — und nur, wenn du "
+       + "ihn drückst. Du kannst die Preise genauso gut selbst nachschlagen und eintippen." }));
+  return karte;
+}
+
+/** Holt die Kurse und trägt sie ein. */
+async function preiseAbrufen(knopf, danach){
+  const e = S.einstellungen;
+  knopf.disabled = true;
+  const alt = Array.from(knopf.childNodes);
+  knopf.replaceChildren(document.createTextNode("Wird geholt …"));
+  try{
+    const preise = await edelmetallpreiseHolen();
+    e.goldPreisCent = preise.goldCent;
+    e.silberPreisCent = preise.silberCent;
+    if(preise.btcCent > 0) e.btcPreisCent = preise.btcCent;
+    e.preiseStand = preise.stand;
+    e.preiseAusNetz = true;
+    speichern();
+    toast(`Gold ${euro(preise.goldCent)} · Silber ${euro(preise.silberCent)} je Gramm`
+        + (preise.btcCent > 0 ? ` · Bitcoin ${euro(preise.btcCent)}` : " · Bitcoin nicht erreichbar"), null, 7000);
+    if(danach) danach(); else zeichnen();
+    return;
+  }catch(fehler){
+    toast(String(fehler.message || fehler) + " Trag die Preise so lange von Hand ein.", null, 9000);
   }
+  knopf.disabled = false;
+  knopf.replaceChildren(...alt);
+}
 
-  async function wirklichAbrufen(){
-    holKnopf.disabled = true;
-    holKnopf.replaceChildren(document.createTextNode("Wird geholt …"));
-    try{
-      const preise = await edelmetallpreiseHolen();
-      goldFeld.feld.value = zahlFuerFeld(preise.goldCent);
-      silberFeld.feld.value = zahlFuerFeld(preise.silberCent);
-      S.einstellungen.goldPreisCent = preise.goldCent;
-      S.einstellungen.silberPreisCent = preise.silberCent;
-      if(preise.btcCent > 0){
-        btcFeld.feld.value = zahlFuerFeld(preise.btcCent);
-        S.einstellungen.btcPreisCent = preise.btcCent;
-      }
-      S.einstellungen.preiseStand = preise.stand;
-      S.einstellungen.preiseAusNetz = true;
-      speichern();
-      standAktualisieren();
-      rechnen();
-      toast(`Gold ${euro(preise.goldCent)} · Silber ${euro(preise.silberCent)} je Gramm`
-          + (preise.btcCent > 0 ? ` · Bitcoin ${euro(preise.btcCent)}` : " · Bitcoin nicht erreichbar"), null, 7000);
-    }catch(fehler){
-      toast(String(fehler.message || fehler) + " Trag die Preise so lange von Hand ein.", null, 9000);
-    }finally{
-      holKnopf.disabled = false;
-      holKnopf.replaceChildren(icon("ic-wiederkehr"), document.createTextNode("Tagespreis holen"));
-    }
-  }
+/** Die Karte für schon gezahlte Zakat. */
+function zakatBezahltKarte(){
+  const e = S.einstellungen;
+  const feld = betragsFeld(e.zakat.bezahltCent || 0, "In diesem Jahr überwiesen");
+  feld.feld.removeAttribute("data-autofokus");
+  const hinweis = feld.box.querySelector(".feld-hinweis");
+  if(hinweis) hinweis.remove();
+  feld.feld.addEventListener("change", () => {
+    e.zakat.bezahltCent = Math.max(0, feld.wert() ?? 0);
+    aendern();
+  });
 
-  karte.appendChild(el("div",{ style:"padding:16px 16px 16px 18px;border-radius:14px;background:var(--karte-2);box-shadow:inset 3px 0 0 var(--akzent);margin-bottom:20px" },
-    el("div",{ class:"t-kapitaelchen", style:"margin-bottom:12px", text:"Tagespreise" }),
-    goldFeld.box,
-    silberFeld.box,
-    btcFeld.box,
-    holKnopf,
-    el("div",{ style:"margin-top:12px" }, standZeile),
-    el("p",{ class:"t-klein", style:"line-height:1.55;margin-top:8px",
-      text:"Der Knopf ist die einzige Stelle, an der Lohnwerk etwas aus dem Internet lädt — und nur, wenn du ihn drückst. "
-         + "Du kannst die Preise genauso gut selbst nachschlagen und eintippen. Für die Schwelle zählt nur der Preis der gewählten Grundlage." })
-  ));
+  const karte = el("div",{ class:"karte" },
+    el("div",{ class:"karte-kopf" }, el("h2",{ text:"Schon bezahlte Zakat" })),
+    el("p",{ class:"t-klein", style:"margin-top:-8px;margin-bottom:16px;line-height:1.55",
+      text:"Was du in diesem Zakat-Jahr bereits überwiesen hast. Die Zahl dient nur der Übersicht — "
+         + "an deinem Monatsbetrag und an den Positionen ändert sie nichts." }),
+    feld.box
+  );
 
-  /* --- Vermögensposten --- */
-  const postenBox = el("div",{});
-  karte.appendChild(el("div",{ style:"display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin:4px 0 12px" },
-    el("span",{ class:"t-kapitaelchen", text:"Dein Vermögen am Stichtag" }),
-    el("button",{ class:"knopf leise klein", type:"button",
-      onclick:() => zakatPostenDialog(null, () => { postenZeichnen(); rechnen(); }) },
-      icon("ic-plus"), "Posten")
-  ));
-  karte.appendChild(postenBox);
-
-  function postenZeichnen(){
-    postenBox.replaceChildren();
-    const liste = zakatPosten();
-
-    if(liste.length === 0){
-      postenBox.appendChild(el("div",{ class:"leer", style:"padding:24px 12px" },
-        (() => { const s = icon("ic-leer-liste"); s.classList.add("bild"); return s; })(),
-        el("h3",{ text:"Noch nichts eingetragen" }),
-        el("p",{ text:"Trag ein, was du besitzt: Konten, Gold, Silber, Bitcoin. Du kannst so viele Posten anlegen, wie du brauchst." }),
-        el("button",{ class:"knopf primaer", type:"button",
-          onclick:() => zakatVorlagenAnlegen(() => { postenZeichnen(); rechnen(); }) },
-          icon("ic-plus"), "Übliche Posten anlegen")
-      ));
-      return;
-    }
-
-    liste.forEach(p => {
-      const art = ZAKAT_ARTEN[p.art];
-      const wert = zakatPostenWert(p);
-      const preisFehlt = zakatPreisFehlt(p);
-      postenBox.appendChild(el("div",{ class:"zeile-huelle" },
-        el("button",{ class:"zeile", type:"button",
-          onclick:() => zakatPostenDialog(p, () => { postenZeichnen(); rechnen(); }) },
-          el("span",{ style:`width:34px;height:34px;border-radius:9px;flex:none;display:flex;align-items:center;justify-content:center;`
-            + `background:${p.art==="schuld"?"var(--rot-weich)":"var(--karte-2)"};color:${p.art==="schuld"?"var(--rot)":"var(--text-2)"}` },
-            icon(art.icon, 17)),
-          el("div",{ class:"zeile-haupt" },
-            el("div",{ class:"zeile-name", text:p.name }),
-            el("div",{ class:"zeile-unter",
-              text: art.geld ? art.name
-                  : `${nfZahl.format(p.wert).replace(",00","")} ${art.einheit}`
-                    + (preisFehlt ? " · Preis fehlt" : "") })
-          ),
-          el("div",{ class:"zeile-rechts" },
-            el("div",{ class:"zeile-betrag", style: p.art==="schuld" ? "color:var(--rot)" : null,
-              text: preisFehlt ? "—" : (p.art==="schuld" ? "− " : "") + euro(wert) })
-          ),
-          el("span",{ class:"zeile-pfeil" }, icon("ic-rechts"))
-        )
-      ));
-    });
-
-    /* Summenzeile */
-    const v = zakatVermoegen();
-    postenBox.appendChild(el("div",{ style:"padding:14px 16px;margin-top:8px;border-radius:12px;background:var(--karte-2)" },
-      el("div",{ style:"display:flex;justify-content:space-between;gap:12px;align-items:baseline" },
-        el("span",{ class:"t-label", text:"Besitz" }),
-        el("span",{ style:"font-variant-numeric:tabular-nums;font-weight:600", text:euro(v.besitz) })
-      ),
-      v.schulden > 0 ? el("div",{ style:"display:flex;justify-content:space-between;gap:12px;align-items:baseline;margin-top:6px" },
-        el("span",{ class:"t-label", text: Z.schule === "hanafi" ? "Schulden abgezogen" : "Schulden (nicht abgezogen)" }),
-        el("span",{ style:`font-variant-numeric:tabular-nums;font-weight:600;color:${Z.schule==="hanafi"?"var(--rot)":"var(--text-3)"}`,
-          text:(Z.schule==="hanafi"?"− ":"")+euro(v.schulden) })
-      ) : null,
-      el("div",{ style:"display:flex;justify-content:space-between;gap:12px;align-items:baseline;margin-top:10px;padding-top:10px;border-top:1px solid var(--linie)" },
-        el("span",{ class:"t-label", style:"font-weight:650", text:"Zakatpflichtig" }),
-        el("span",{ style:"font-size:17px;font-weight:650;font-variant-numeric:tabular-nums", text:euro(v.netto) })
+  const soll = zakatFaellig();
+  if(soll > 0){
+    const bezahlt = e.zakat.bezahltCent || 0;
+    const rest = soll - bezahlt;
+    const zeile = (name, wert, farbe) => el("div",{ class:"datenzeile" },
+      el("span",{ class:"dz-name", text:name }),
+      el("span",{ class:"dz-wert", style: farbe ? `color:${farbe}` : null, text:wert })
+    );
+    karte.appendChild(el("div",{ style:"margin-top:4px" },
+      zeile("Zakat gesamt", euro(soll)),
+      zeile("Davon schon gezahlt", "− "+euro(bezahlt), bezahlt > 0 ? "var(--gruen)" : null),
+      el("div",{ class:"datenzeile", style:"border-top:1.5px solid var(--linie-stark)" },
+        el("span",{ class:"dz-name", style:"font-weight:650",
+          text: rest <= 0 ? "Vollständig gezahlt" : "Bleibt offen" }),
+        el("span",{ class:"dz-wert", style:`font-size:17px;color:${rest <= 0 ? "var(--gruen)" : "var(--text)"}`,
+          text: rest <= 0 ? euro(0) : euro(rest) })
       )
+    ));
+    if(rest < 0){
+      karte.appendChild(el("p",{ class:"t-klein", style:"margin-top:10px;line-height:1.5",
+        text:`Du hast ${euro(-rest)} mehr gezahlt, als die Rechnung ergibt. Das Zuviel gilt als freiwillige Gabe.` }));
+    }
+    karte.appendChild(el("div",{ class:"knopf-reihe", style:"margin-top:14px" },
+      el("button",{ class:"knopf klein rahmen", type:"button",
+        onclick:() => {
+          const alt = e.zakat.bezahltCent || 0;
+          e.zakat.bezahltCent = 0;
+          aendern();
+          toast("Zurückgesetzt — für ein neues Zakat-Jahr.", () => {
+            S.einstellungen.zakat.bezahltCent = alt; aendern();
+          });
+        }}, "Auf null setzen")
+    ));
+    karte.appendChild(el("p",{ class:"t-klein", style:"margin-top:10px;line-height:1.5",
+      text:"Nach deinem Stichtag beginnt ein neues Zakat-Jahr — dann setzt du den Wert wieder auf null." }));
+  } else {
+    karte.appendChild(el("p",{ class:"t-klein", style:"margin-top:12px;line-height:1.5",
+      text:"Sobald dein Vermögen über der Schwelle liegt und die Tagespreise eingetragen sind, "
+         + "steht hier die Gegenüberstellung: Zakat gesamt, davon gezahlt, was offen bleibt." }));
+  }
+  return karte;
+}
+
+/* ----------------------------------------------------------------
+   WERKZEUG: DER RECHNER — nur das Ergebnis
+   ---------------------------------------------------------------- */
+function zakatRechner(){
+  const e = S.einstellungen;
+  const karte = el("div",{ class:"karte" });
+  karte.appendChild(el("div",{ class:"karte-kopf" },
+    el("h2",{ text:"Zakat-Rechner" }),
+    el("button",{ class:"knopf leise klein", type:"button",
+      onclick:() => navigieren("zakat") }, icon("ic-einstellungen"), "Ändern")
+  ));
+
+  const posten = zakatPosten();
+  if(posten.length === 0){
+    karte.appendChild(el("div",{ class:"leer", style:"padding:20px 8px" },
+      (() => { const s = icon("ic-leer-liste"); s.classList.add("bild"); return s; })(),
+      el("h3",{ text:"Noch kein Vermögen eingetragen" }),
+      el("p",{ text:"Trag unter Einstellungen ein, was du besitzt — Konten, Gold, Silber, Bitcoin. "
+                  + "Danach steht hier, ob und wie viel Zakat fällig wird." }),
+      el("button",{ class:"knopf primaer", type:"button",
+        onclick:() => navigieren("zakat") }, icon("ic-plus"), "Vermögen eintragen")
+    ));
+    karte.appendChild(zakatErklaerung());
+    return karte;
+  }
+
+  const v = zakatVermoegen();
+  const nisab = zakatNisab();
+  const preisFehlt = zakatGrundpreisFehlt();
+  const betrag = zakatFaellig();
+  const pflichtig = betrag > 0;
+  const proMonat = Math.round(betrag / 12);
+
+  /* --- Ergebnis --- */
+  if(preisFehlt){
+    karte.appendChild(el("div",{ class:"banner warn" },
+      icon("ic-warn"),
+      el("div",{ class:"inhalt-b" },
+        el("div",{ text: e.zakat.grundlage === "silber"
+          ? "Der Silberpreis fehlt — ohne ihn lässt sich die Schwelle nicht bestimmen."
+          : "Der Goldpreis fehlt — ohne ihn lässt sich die Schwelle nicht bestimmen." }),
+        el("div",{ class:"knopf-reihe" },
+          el("button",{ class:"knopf klein primaer", type:"button",
+            onclick:() => navigieren("zakat") }, "Preise eintragen")
+        )
+      )
+    ));
+  } else {
+    karte.appendChild(el("div",{ style:"padding:18px;border-radius:14px;background:var(--karte-2)" },
+      el("div",{ class:"t-kapitaelchen", text: pflichtig ? "Zu entrichten" : "Ergebnis" }),
+      el("div",{ style:`font-size:34px;font-weight:650;letter-spacing:-.03em;font-variant-numeric:tabular-nums;margin-top:2px;color:${pflichtig ? "var(--gruen)" : "var(--text-2)"}`,
+        text: pflichtig ? euro(betrag) : "keine Zakat fällig" }),
+      el("p",{ class:"t-klein", style:"margin-top:8px;line-height:1.55",
+        text: pflichtig
+          ? `2,5 % von ${euro(v.netto)}. Voraussetzung ist, dass dein Vermögen ein islamisches Mondjahr lang über der Schwelle lag.`
+          : `Dein Vermögen von ${euro(v.netto)} liegt unter der Schwelle von ${euro(nisab)}. Dann ist keine Zakat fällig.` })
+    ));
+
+    if(pflichtig && proMonat > 0){
+      karte.appendChild(el("div",{ style:"padding:18px;border-radius:14px;margin-top:12px;background:var(--karte-2);box-shadow:inset 3px 0 0 var(--akzent)" },
+        el("div",{ class:"t-kapitaelchen", text:"Monatlich zurücklegen" }),
+        el("div",{ style:"font-size:30px;font-weight:650;letter-spacing:-.025em;font-variant-numeric:tabular-nums;margin-top:2px;color:var(--akzent)",
+          text:euro(proMonat) }),
+        el("p",{ class:"t-klein", style:"margin-top:8px;line-height:1.55",
+          text:`So hast du die ${euro(betrag)} in zwölf Monaten beisammen und musst sie nicht auf einmal aufbringen.` })
+      ));
+      karte.appendChild(zakatAbgleichKarte(betrag, proMonat));
+    }
+
+    /* --- Aufschlüsselung --- */
+    const zeile = (name, neben, wert, farbe) => el("div",{ class:"datenzeile" },
+      el("span",{ class:"dz-name" },
+        el("span",{ text:name }),
+        neben ? el("span",{ class:"neben", text:neben }) : null),
+      el("span",{ class:"dz-wert", style: farbe ? `color:${farbe}` : null, text:wert })
+    );
+    const nachArt = {};
+    posten.forEach(p => {
+      if(!nachArt[p.art]) nachArt[p.art] = { wert:0, menge:0, anzahl:0 };
+      nachArt[p.art].wert += zakatPostenWert(p);
+      nachArt[p.art].menge += p.wert;
+      nachArt[p.art].anzahl++;
+    });
+    const box = el("div",{ style:"margin-top:16px" });
+    if(nachArt.geld) box.appendChild(zeile("Geld und Anlagen",
+      `${nachArt.geld.anzahl} ${plural(nachArt.geld.anzahl,"Posten","Posten")}`, euro(nachArt.geld.wert)));
+    if(nachArt.gold) box.appendChild(zeile("Gold",
+      `${nfZahl.format(nachArt.gold.menge).replace(",00","")} g`, euro(nachArt.gold.wert)));
+    if(nachArt.silber) box.appendChild(zeile("Silber",
+      `${nfZahl.format(nachArt.silber.menge).replace(",00","")} g`, euro(nachArt.silber.wert)));
+    if(nachArt.btc) box.appendChild(zeile("Bitcoin",
+      `${nfBtc.format(nachArt.btc.menge)} BTC`, euro(nachArt.btc.wert)));
+    if(nachArt.schuld){
+      box.appendChild(e.zakat.schule === "hanafi"
+        ? zeile("Fällige Schulden", "werden abgezogen", "− "+euro(nachArt.schuld.wert), "var(--rot)")
+        : zeile("Fällige Schulden", "nach schafiitischer Lehre nicht abgezogen", euro(nachArt.schuld.wert), "var(--text-2)"));
+    }
+    box.appendChild(zeile("Zakatpflichtiges Vermögen", null, euro(v.netto)));
+    box.appendChild(zeile("Schwelle (Nisab)",
+      e.zakat.grundlage === "silber" ? `${NISAB_SILBER_GRAMM} g Silber` : `${NISAB_GOLD_GRAMM} g Gold`,
+      euro(nisab)));
+    box.appendChild(zeile("Rechtsschule", null, e.zakat.schule === "hanafi" ? "Hanafi" : "Schafi'i"));
+    karte.appendChild(box);
+
+    if(e.zakat.schule === "schafii" && nachArt.gold?.wert > 0 && nachArt.silber?.wert > 0){
+      const nisabGold = Math.round(NISAB_GOLD_GRAMM * (e.goldPreisCent||0));
+      const nisabSilber = Math.round(NISAB_SILBER_GRAMM * (e.silberPreisCent||0));
+      karte.appendChild(el("div",{ class:"banner", style:"margin-top:16px" },
+        icon("ic-info"),
+        el("div",{ class:"inhalt-b", style:"line-height:1.55",
+          html: `In der schafiitischen Lehre werden Gold und Silber <strong>getrennt</strong> bewertet, jedes mit eigener Schwelle: `
+            + `Gold ${euro(nachArt.gold.wert)} gegen ${euro(nisabGold)}, Silber ${euro(nachArt.silber.wert)} gegen ${euro(nisabSilber)}. `
+            + `Die Rechnung oben fasst zusammen — prüfe die beiden Posten deshalb auch einzeln.` })
+      ));
+    }
+  }
+
+  if(v.fehlendePreise.length > 0){
+    karte.appendChild(el("div",{ class:"banner warn", style:"margin-top:14px" },
+      icon("ic-warn"),
+      el("div",{ class:"inhalt-b",
+        text:`Für ${v.fehlendePreise.map(a => ZAKAT_ARTEN[a].name).join(" und ")} fehlt der Tagespreis. `
+           + "Diese Posten werden noch nicht mitgerechnet." })
     ));
   }
 
-  const ergebnis = el("div",{});
-  karte.appendChild(ergebnis);
+  /* --- Stichtag als Anzeige --- */
+  karte.appendChild(zakatStichtagAnzeige());
 
-  function rechnen(){
-    Z.goldPreis = goldFeld.wert() ?? 0;
-    Z.silberPreis = silberFeld.wert() ?? 0;
-
-    /* Selbst eingetippte Preise merken, damit sie beim nächsten Öffnen
-       wieder da sind. Ein von Hand geänderter Wert gilt nicht mehr als
-       abgerufen — sonst stimmt die Herkunftsangabe nicht. */
-    Z.btcPreis = btcFeld.wert() ?? 0;
-    if(Z.goldPreis !== (S.einstellungen.goldPreisCent||0)
-       || Z.silberPreis !== (S.einstellungen.silberPreisCent||0)
-       || Z.btcPreis !== (S.einstellungen.btcPreisCent||0)){
-      S.einstellungen.goldPreisCent = Z.goldPreis;
-      S.einstellungen.silberPreisCent = Z.silberPreis;
-      S.einstellungen.btcPreisCent = Z.btcPreis;
-      if(Z.goldPreis > 0 || Z.silberPreis > 0 || Z.btcPreis > 0){
-        S.einstellungen.preiseStand = new Date().toISOString();
-        S.einstellungen.preiseAusNetz = false;
-      }
-      speichern();
-      standAktualisieren();
-    }
-    /* Alle Posten bewerten. */
-    const v = zakatVermoegen();
-    const netto = v.netto;
-
-    /* Die Schwelle in Euro — abhängig von der gewählten Grundlage. */
-    const nisab = Z.grundlage === "silber"
-      ? Math.round(NISAB_SILBER_GRAMM * Z.silberPreis)
-      : Math.round(NISAB_GOLD_GRAMM * Z.goldPreis);
-    const preisFehlt = Z.grundlage === "silber" ? Z.silberPreis <= 0 : Z.goldPreis <= 0;
-    const pflichtig = !preisFehlt && netto >= nisab && nisab > 0;
-    const betrag = pflichtig ? Math.round(netto * ZAKAT_SATZ) : 0;
-    /* Was man monatlich zurücklegen müsste, um den Betrag im Jahr beisammen
-       zu haben. Bewusst durch 12 geteilt — gerechnet wird in Kalendermonaten,
-       auch wenn der Zakat-Stichtag dem Mondjahr folgt. */
-    const proMonat = Math.round(betrag / 12);
-
-    merken();
-    const kinder = [];
-
-    if(preisFehlt){
-      kinder.push(el("div",{ class:"banner warn", style:"margin-top:6px" },
-        icon("ic-warn"),
-        el("div",{ class:"inhalt-b",
-          text: Z.grundlage === "silber"
-            ? "Trag den Silberpreis je Gramm ein — ohne ihn lässt sich die Schwelle nicht bestimmen."
-            : "Trag den Goldpreis je Gramm ein — ohne ihn lässt sich die Schwelle nicht bestimmen." })
-      ));
-    } else {
-      kinder.push(el("div",{ style:`padding:18px;border-radius:14px;margin-top:6px;background:${pflichtig ? "var(--karte-2)" : "var(--karte-2)"}` },
-        el("div",{ class:"t-kapitaelchen", text: pflichtig ? "Zu entrichten" : "Ergebnis" }),
-        el("div",{ style:`font-size:34px;font-weight:650;letter-spacing:-.03em;font-variant-numeric:tabular-nums;margin-top:2px;color:${pflichtig ? "var(--gruen)" : "var(--text-2)"}`,
-          text: pflichtig ? euro(betrag) : "keine Zakat fällig" }),
-        el("p",{ class:"t-klein", style:"margin-top:8px;line-height:1.55",
-          text: pflichtig
-            ? `2,5 % von ${euro(netto)}. Voraussetzung ist, dass dein Vermögen ein islamisches Mondjahr lang über der Schwelle lag.`
-            : `Dein Vermögen von ${euro(netto)} liegt unter der Schwelle von ${euro(nisab)}. Dann ist keine Zakat fällig.` })
-      ));
-
-      /* Monatsbetrag und Abgleich mit dem, was schon läuft. */
-      if(pflichtig && proMonat > 0){
-        kinder.push(el("div",{ style:"padding:18px;border-radius:14px;margin-top:12px;background:var(--karte-2);box-shadow:inset 3px 0 0 var(--akzent)" },
-          el("div",{ class:"t-kapitaelchen", text:"Monatlich zurücklegen" }),
-          el("div",{ style:"font-size:30px;font-weight:650;letter-spacing:-.025em;font-variant-numeric:tabular-nums;margin-top:2px;color:var(--akzent)",
-            text:euro(proMonat) }),
-          el("p",{ class:"t-klein", style:"margin-top:8px;line-height:1.55",
-            html:`So hast du die ${euro(betrag)} in zwölf Monaten beisammen und musst sie nicht auf einmal aufbringen.` })
-        ));
-        kinder.push(zakatAbgleichKarte(betrag, proMonat));
-      }
-
-      /* Aufschlüsselung */
-      const zeile = (name, neben, wert, farbe) => el("div",{ class:"datenzeile" },
-        el("span",{ class:"dz-name" },
-          el("span",{ text:name }),
-          neben ? el("span",{ class:"neben", text:neben }) : null),
-        el("span",{ class:"dz-wert", style: farbe ? `color:${farbe}` : null, text:wert })
-      );
-      const box = el("div",{ style:"margin-top:16px" });
-      /* Nach Art zusammengefasst, damit die Zeilen nicht ausufern. */
-      const nachArt = {};
-      zakatPosten().forEach(p => {
-        if(!nachArt[p.art]) nachArt[p.art] = { wert:0, menge:0, anzahl:0 };
-        nachArt[p.art].wert += zakatPostenWert(p);
-        nachArt[p.art].menge += p.wert;
-        nachArt[p.art].anzahl++;
+  /* --- Preise auffrischen und Weg zu den Einstellungen --- */
+  const standTage = tageSeit(e.preiseStand);
+  const frischKnopf = el("button",{ class:"knopf rahmen", type:"button", style:"flex:1" },
+    icon("ic-wiederkehr"), "Preise auffrischen");
+  frischKnopf.onclick = () => {
+    if(!e.kurseErlaubt){
+      bestaetigen({
+        titel:"Kurse aus dem Internet holen?",
+        text:"Lohnwerk fragt dann bei öffentlichen Preisdiensten nach den heutigen Kursen für Gold, Silber "
+           + "und Bitcoin. Von deinen Zahlen wird dabei nichts übertragen. Alles andere bleibt offline.",
+        knopfText:"Einverstanden, holen",
+        dann:() => { e.kurseErlaubt = true; speichern(); preiseAbrufen(frischKnopf, () => zeichneWerkzeuge()); }
       });
-      if(nachArt.geld) box.appendChild(zeile("Geld und Anlagen",
-        `${nachArt.geld.anzahl} ${plural(nachArt.geld.anzahl,"Posten","Posten")}`, euro(nachArt.geld.wert)));
-      if(nachArt.gold) box.appendChild(zeile("Gold",
-        `${nfZahl.format(nachArt.gold.menge).replace(",00","")} g`, euro(nachArt.gold.wert)));
-      if(nachArt.silber) box.appendChild(zeile("Silber",
-        `${nfZahl.format(nachArt.silber.menge).replace(",00","")} g`, euro(nachArt.silber.wert)));
-      if(nachArt.btc) box.appendChild(zeile("Bitcoin",
-        `${nfBtc.format(nachArt.btc.menge)} BTC`, euro(nachArt.btc.wert)));
-      if(nachArt.schuld){
-        box.appendChild(Z.schule === "hanafi"
-          ? zeile("Fällige Schulden", "werden abgezogen", "− "+euro(nachArt.schuld.wert), "var(--rot)")
-          : zeile("Fällige Schulden", "nach schafiitischer Lehre nicht abgezogen", euro(nachArt.schuld.wert), "var(--text-2)"));
-      }
-      box.appendChild(zeile("Zakatpflichtiges Vermögen", null, euro(netto)));
-      box.appendChild(zeile("Schwelle (Nisab)",
-        Z.grundlage === "silber" ? `${NISAB_SILBER_GRAMM} g Silber` : `${NISAB_GOLD_GRAMM} g Gold`,
-        euro(nisab)));
-      kinder.push(box);
-
-      /* Bei Schafi'i getrennte Betrachtung sichtbar machen */
-      if(Z.schule === "schafii" && nachArt.gold?.wert > 0 && nachArt.silber?.wert > 0){
-        const nisabGold = Math.round(NISAB_GOLD_GRAMM * Z.goldPreis);
-        const nisabSilber = Math.round(NISAB_SILBER_GRAMM * Z.silberPreis);
-        kinder.push(el("div",{ class:"banner", style:"margin-top:16px" },
-          icon("ic-info"),
-          el("div",{ class:"inhalt-b", style:"line-height:1.55",
-            html: `In der schafiitischen Lehre werden Gold und Silber <strong>getrennt</strong> bewertet, jedes mit eigener Schwelle: `
-              + `Gold ${euro(nachArt.gold.wert)} gegen ${euro(nisabGold)}, Silber ${euro(nachArt.silber.wert)} gegen ${euro(nisabSilber)}. `
-              + `Die Rechnung oben fasst zusammen — prüfe die beiden Posten deshalb auch einzeln.` })
-        ));
-      }
+      return;
     }
+    preiseAbrufen(frischKnopf, () => zeichneWerkzeuge());
+  };
 
-    /* Fehlende Tagespreise für Posten, die welche brauchen. */
-    if(v.fehlendePreise.length > 0){
-      kinder.push(el("div",{ class:"banner warn", style:"margin-top:14px" },
-        icon("ic-warn"),
-        el("div",{ class:"inhalt-b",
-          text:`Für ${v.fehlendePreise.map(a => ZAKAT_ARTEN[a].name).join(" und ")} fehlt der Tagespreis. `
-             + "Diese Posten werden noch nicht mitgerechnet." })
-      ));
-    }
+  karte.appendChild(el("div",{ style:"margin-top:18px;padding-top:16px;border-top:1px solid var(--linie)" },
+    el("div",{ style:"display:flex;gap:8px" },
+      frischKnopf,
+      el("button",{ class:"knopf rahmen", type:"button", style:"flex:1",
+        onclick:() => navigieren("zakat") }, icon("ic-einstellungen"), "Einstellungen")
+    ),
+    el("p",{ class:"t-klein", style:"margin-top:10px;line-height:1.5",
+      text: e.preiseStand
+        ? `Preise vom ${datumLesbar(e.preiseStand)}`
+          + (standTage !== null && standTage > 3 ? " — Kurse schwanken täglich." : "")
+          + ". Vermögen, Rechtsschule und Stichtag pflegst du in den Einstellungen."
+        : "Vermögen, Preise, Rechtsschule und Stichtag pflegst du in den Einstellungen." })
+  ));
 
-    postenZeichnen();
-    ergebnis.replaceChildren(...kinder, zakatErklaerung());
-  }
-
-  [goldFeld.feld, silberFeld.feld, btcFeld.feld].forEach(f => f.addEventListener("input", rechnen));
-
-  grundlageAktualisieren();
-  rechnen();
+  karte.appendChild(zakatErklaerung());
   return karte;
 }
+
+/** Der Stichtag als reine Anzeige im Rechner. */
+function zakatStichtagAnzeige(){
+  const gesetzt = S.einstellungen.zakat?.stichtag || null;
+  const box = el("div",{ style:"margin-top:16px;padding:16px;border-radius:14px;background:var(--karte-2)" });
+  box.appendChild(el("div",{ class:"t-kapitaelchen", style:"margin-bottom:6px", text:"Stichtag" }));
+
+  if(!gesetzt){
+    box.appendChild(el("p",{ class:"t-klein", style:"line-height:1.55",
+      text:"Noch keiner festgelegt. In den Einstellungen wählst du ihn im islamischen Kalender — "
+         + "viele nehmen einen festen Tag im Ramadan." }));
+    return box;
+  }
+
+  const start = new Date(gesetzt + "T12:00:00");
+  const jetzt = heute();
+  const heuteMittag = new Date(jetzt.getFullYear(), jetzt.getMonth(), jetzt.getDate(), 12, 0, 0);
+  let naechster = new Date(start.getTime());
+  let sicherung = 0;
+  while(naechster < heuteMittag && sicherung < 200){
+    naechster = new Date(naechster.getTime() + MONDJAHR_TAGE * 86400000);
+    sicherung++;
+  }
+  const tageHin = Math.max(0, Math.round((naechster - heuteMittag) / 86400000));
+  const hStart = hijriVonDatum(start);
+
+  box.appendChild(el("div",{ style:"display:flex;align-items:baseline;justify-content:space-between;gap:12px" },
+    el("span",{ style:"font-size:19px;font-weight:640;letter-spacing:-.02em",
+      text: tageHin === 0 ? "heute" : `in ${tageHin} ${plural(tageHin,"Tag","Tagen")}` }),
+    el("span",{ class:"t-label zahl", text: datumLesbar(naechster.toISOString()) })
+  ));
+  if(hStart){
+    box.appendChild(el("p",{ class:"t-klein", style:"margin-top:4px",
+      text: `${hStart.tag}. ${HIJRI_MONATE[hStart.monat-1]} nach islamischem Kalender` }));
+  }
+  return box;
+}
+
 
 /** Legt die üblichen Posten auf einen Schlag an — leer, zum Ausfüllen. */
 function zakatVorlagenAnlegen(dann){
@@ -5822,7 +5931,6 @@ function zakatAbgleichKarte(sollJahr, sollMonat){
          + "taucht im Monatsblatt auf — so ist die volle Summe verplant." }));
   }
 
-  box.appendChild(stichtagBereich());
   return box;
 }
 
@@ -5886,7 +5994,7 @@ function stichtagBereich(){
     onchange:(e) => {
       S.einstellungen.zakat.stichtag = e.target.value || null;
       speichern();
-      zeichneWerkzeuge();
+      zeichnen();
     }});
 
   if(!HIJRI_KALENDER){
@@ -5899,9 +6007,9 @@ function stichtagBereich(){
   wahlBox.appendChild(el("div",{ class:"segment breit", style:"margin-bottom:12px", role:"group",
     "aria-label":"Art der Datumsangabe" },
     el("button",{ type:"button", "aria-pressed": modus === "islamisch" ? "true":"false",
-      text:"Islamisch", onclick:() => { UI.stichtagModus = "islamisch"; zeichneWerkzeuge(); }}),
+      text:"Islamisch", onclick:() => { UI.stichtagModus = "islamisch"; zeichnen(); }}),
     el("button",{ type:"button", "aria-pressed": modus === "gewoehnlich" ? "true":"false",
-      text:"Kalenderdatum", onclick:() => { UI.stichtagModus = "gewoehnlich"; zeichneWerkzeuge(); }})
+      text:"Kalenderdatum", onclick:() => { UI.stichtagModus = "gewoehnlich"; zeichnen(); }})
   ));
 
   if(modus === "gewoehnlich"){
@@ -5963,7 +6071,7 @@ function stichtagBereich(){
       if(!iso) return;
       S.einstellungen.zakat.stichtag = iso;
       speichern();
-      zeichneWerkzeuge();
+      zeichnen();
       toast(`Stichtag gesetzt: ${gewTag}. ${HIJRI_MONATE[gewMonat-1]}`);
     }}, icon("ic-check"), "Als Stichtag übernehmen"));
 
@@ -5985,13 +6093,13 @@ function hijriKalenderKarte(){
 
   box.appendChild(el("div",{ style:"display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:4px" },
     el("button",{ class:"sym", type:"button", "aria-label":"Vorheriges Jahr",
-      onclick:() => { UI.hijriJahr = jahr - 1; zeichneWerkzeuge(); } }, icon("ic-links")),
+      onclick:() => { UI.hijriJahr = jahr - 1; zeichnen(); } }, icon("ic-links")),
     el("div",{ style:"flex:1;text-align:center" },
       el("div",{ class:"t-h3", text:jahr + " AH" }),
       el("div",{ class:"t-klein", text:"heute: " + hijriLesbar(hHeute) })
     ),
     el("button",{ class:"sym", type:"button", "aria-label":"Nächstes Jahr",
-      onclick:() => { UI.hijriJahr = jahr + 1; zeichneWerkzeuge(); } }, icon("ic-rechts"))
+      onclick:() => { UI.hijriJahr = jahr + 1; zeichnen(); } }, icon("ic-rechts"))
   ));
 
   /* Ramadan hervorgehoben */
@@ -6021,7 +6129,7 @@ function hijriKalenderKarte(){
         const d = m.beginn;
         S.einstellungen.zakat.stichtag = d.getFullYear()+"-"+p(d.getMonth()+1)+"-"+p(d.getDate());
         speichern();
-        zeichneWerkzeuge();
+        zeichnen();
         toast(`Stichtag auf den 1. ${m.name} gesetzt.`);
       }},
       el("span",{ class:"dz-name" },
@@ -7529,124 +7637,31 @@ function zeichneEinstellungen(){
       el("div",{ class:"feld-hinweis", text:"Wenn eingetragen, zeigt Lohnwerk bei teuren Positionen, wie vielen Arbeitsstunden sie entsprechen." }))
   ));
 
-  /* --- Zakat-Vermögen --- */
-  const zkKarte = el("div",{ class:"karte" },
-    el("div",{ class:"karte-kopf" },
-      el("h2",{ text:"Zakat-Vermögen" }),
-      el("button",{ class:"knopf leise klein", type:"button",
-        onclick:() => zakatPostenDialog(null, () => zeichnen()) },
-        icon("ic-plus"), "Neu")
-    ),
-    el("p",{ class:"t-klein", style:"margin-top:-8px;margin-bottom:14px;line-height:1.5",
-      text:"Was du besitzt — Konten, Gold, Silber, Bitcoin. Der Zakat-Rechner unter Werkzeuge greift darauf zu. "
-         + "Du kannst so viele Posten anlegen, wie du brauchst, etwa mehrere Tagesgeldkonten." })
-  );
-
+  /* --- Zakat: alles auf einer eigenen Seite --- */
   const zkPosten = zakatPosten();
-  if(zkPosten.length === 0){
-    zkKarte.appendChild(el("button",{ class:"knopf rahmen breit", type:"button",
-      onclick:() => zakatVorlagenAnlegen(() => zeichnen()) },
-      icon("ic-plus"), "Übliche Posten anlegen"));
-  } else {
-    zkPosten.forEach(pp => {
-      const art = ZAKAT_ARTEN[pp.art];
-      const wert = zakatPostenWert(pp);
-      const fehlt = zakatPreisFehlt(pp);
-      zkKarte.appendChild(el("div",{ class:"datenzeile", style:"align-items:center" },
-        el("button",{ type:"button", style:"flex:1;text-align:left;min-width:0;display:flex;align-items:center;gap:11px;min-height:44px",
-          onclick:() => zakatPostenDialog(pp, () => zeichnen()) },
-          (() => { const s = icon(art.icon); s.style.width="18px"; s.style.height="18px"; s.style.flex="none";
-                   s.style.color = pp.art==="schuld" ? "var(--rot)" : "var(--text-2)"; return s; })(),
-          el("span",{ style:"min-width:0" },
-            el("span",{ style:"display:block;font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap", text:pp.name }),
-            el("span",{ style:"display:block;font-size:12.5px;color:var(--text-2)",
-              text: art.geld ? art.name
-                  : `${pp.art==="btc" ? nfBtc.format(pp.wert) : nfZahl.format(pp.wert).replace(",00","")} ${art.einheit}`
-                    + (fehlt ? " · Tagespreis fehlt" : "") })
-          )
-        ),
-        el("span",{ style:`font-variant-numeric:tabular-nums;font-weight:600;white-space:nowrap;${pp.art==="schuld"?"color:var(--rot)":""}`,
-          text: fehlt ? "—" : (pp.art==="schuld" ? "− " : "") + euro(wert) })
-      ));
-    });
-    const v = zakatVermoegen();
-    zkKarte.appendChild(el("div",{ style:"display:flex;justify-content:space-between;gap:12px;align-items:baseline;margin-top:14px;padding-top:12px;border-top:1.5px solid var(--linie-stark)" },
-      el("span",{ class:"t-label", style:"font-weight:650", text:"Zakatpflichtig" }),
-      el("span",{ style:"font-size:18px;font-weight:650;font-variant-numeric:tabular-nums", text:euro(v.netto) })
-    ));
-    zkKarte.appendChild(el("div",{ class:"knopf-reihe", style:"margin-top:14px" },
-      el("button",{ class:"knopf klein rahmen", type:"button",
-        onclick:() => { UI.rechnerOffen = "zakat"; navigieren("werkzeuge"); } },
-        icon("ic-ziel"), "Zum Zakat-Rechner")
-    ));
-  }
+  const zvGesamt = zakatVermoegen();
+  const zkFaellig = zakatFaellig();
+  const zkKarte = el("div",{ class:"karte", style:"padding:0;overflow:hidden" });
+  zkKarte.appendChild(el("div",{ class:"zeile-huelle" },
+    el("button",{ class:"zeile", type:"button", onclick:() => navigieren("zakat") },
+      el("span",{ style:"width:38px;height:38px;border-radius:10px;flex:none;display:flex;align-items:center;justify-content:center;background:var(--karte-2);color:var(--text-2)" },
+        icon("ic-ziel", 19)),
+      el("div",{ class:"zeile-haupt" },
+        el("div",{ class:"zeile-name", text:"Zakat" }),
+        el("div",{ class:"zeile-unter",
+          text: zkPosten.length === 0
+            ? "Vermögen, Preise, Rechtsschule und Stichtag"
+            : `${zkPosten.length} ${plural(zkPosten.length,"Posten","Posten")} · ${euro(zvGesamt.netto)} zakatpflichtig` })
+      ),
+      el("div",{ class:"zeile-rechts" },
+        zkFaellig > 0 ? el("div",{ class:"zeile-betrag", text:euro(Math.round(zkFaellig/12)) }) : null,
+        zkFaellig > 0 ? el("div",{ class:"zeile-betrag-2", text:"im Monat" }) : null
+      ),
+      el("span",{ class:"zeile-pfeil" }, icon("ic-rechts"))
+    )
+  ));
   wurzel.appendChild(zkKarte);
 
-  /* --- Schon gezahlte Zakat: reine Buchführung --- */
-  const bezahltFeld = betragsFeld(S.einstellungen.zakat.bezahltCent || 0, "In diesem Jahr überwiesen");
-  bezahltFeld.feld.removeAttribute("data-autofokus");
-  const bezahltHinweis = bezahltFeld.box.querySelector(".feld-hinweis");
-  if(bezahltHinweis) bezahltHinweis.remove();
-  bezahltFeld.feld.addEventListener("change", () => {
-    S.einstellungen.zakat.bezahltCent = Math.max(0, bezahltFeld.wert() ?? 0);
-    aendern();
-  });
-
-  const bezahltKarte = el("div",{ class:"karte" },
-    el("div",{ class:"karte-kopf" }, el("h2",{ text:"Schon bezahlte Zakat" })),
-    el("p",{ class:"t-klein", style:"margin-top:-8px;margin-bottom:16px;line-height:1.55",
-      text:"Trag hier ein, was du in diesem Zakat-Jahr bereits überwiesen hast. Die Zahl dient nur "
-         + "der Übersicht — an deinem Monatsbetrag und an den Positionen ändert sie nichts." }),
-    bezahltFeld.box
-  );
-
-  /* Die Gegenüberstellung, sobald eine Zakat berechnet werden kann. */
-  const zv = zakatVermoegen();
-  const zNisab = S.einstellungen.zakat.grundlage === "silber"
-    ? Math.round(NISAB_SILBER_GRAMM * (S.einstellungen.silberPreisCent||0))
-    : Math.round(NISAB_GOLD_GRAMM * (S.einstellungen.goldPreisCent||0));
-  if(zNisab > 0 && zv.netto >= zNisab){
-    const soll = Math.round(zv.netto * ZAKAT_SATZ);
-    const bezahlt = S.einstellungen.zakat.bezahltCent || 0;
-    const rest = soll - bezahlt;
-    const zeile = (name, wert, farbe, fett) => el("div",{ class:"datenzeile" },
-      el("span",{ class:"dz-name", style: fett ? "font-weight:600" : null, text:name }),
-      el("span",{ class:"dz-wert", style: farbe ? `color:${farbe}` : null, text:wert })
-    );
-    bezahltKarte.appendChild(el("div",{ style:"margin-top:4px" },
-      zeile("Zakat gesamt", euro(soll)),
-      zeile("Davon schon gezahlt", "− "+euro(bezahlt), bezahlt > 0 ? "var(--gruen)" : null),
-      el("div",{ class:"datenzeile", style:"border-top:1.5px solid var(--linie-stark)" },
-        el("span",{ class:"dz-name", style:"font-weight:650",
-          text: rest <= 0 ? "Vollständig gezahlt" : "Bleibt offen" }),
-        el("span",{ class:"dz-wert", style:`font-size:17px;color:${rest <= 0 ? "var(--gruen)" : "var(--text)"}`,
-          text: rest <= 0 ? euro(0) : euro(rest) })
-      )
-    ));
-    if(rest < 0){
-      bezahltKarte.appendChild(el("p",{ class:"t-klein", style:"margin-top:10px;line-height:1.5",
-        text:`Du hast ${euro(-rest)} mehr gezahlt, als die Rechnung ergibt. Das Zuviel gilt als freiwillige Gabe.` }));
-    }
-    bezahltKarte.appendChild(el("div",{ class:"knopf-reihe", style:"margin-top:14px" },
-      el("button",{ class:"knopf klein rahmen", type:"button",
-        onclick:() => {
-          const alt = S.einstellungen.zakat.bezahltCent || 0;
-          S.einstellungen.zakat.bezahltCent = 0;
-          aendern();
-          toast("Zurückgesetzt — für ein neues Zakat-Jahr.", () => {
-            S.einstellungen.zakat.bezahltCent = alt; aendern();
-          });
-        }},
-        "Auf null setzen")
-    ));
-    bezahltKarte.appendChild(el("p",{ class:"t-klein", style:"margin-top:10px;line-height:1.5",
-      text:"Nach deinem Stichtag beginnt ein neues Zakat-Jahr — dann setzt du den Wert wieder auf null." }));
-  } else {
-    bezahltKarte.appendChild(el("p",{ class:"t-klein", style:"margin-top:12px;line-height:1.5",
-      text:"Sobald dein Vermögen über der Schwelle liegt und die Tagespreise eingetragen sind, "
-         + "steht hier die Gegenüberstellung: Zakat gesamt, davon gezahlt, was offen bleibt." }));
-  }
-  wurzel.appendChild(bezahltKarte);
 
   /* --- Annahmen für die Hochrechnung --- */
   const zahlFeld = (wert, min, max, schritt, platzhalter, setzen) =>
@@ -8384,6 +8399,7 @@ function zeichnen(){
     case "ausgaben":      zeichneAusgaben(); break;
     case "auswertung":    zeichneAuswertung(); break;
     case "werkzeuge":     zeichneWerkzeuge(); break;
+    case "zakat":         zeichneZakatEinstellungen(); break;
     case "einstellungen": zeichneEinstellungen(); break;
   }
   zeichneAktionsleiste();

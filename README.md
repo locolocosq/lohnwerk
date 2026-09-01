@@ -221,7 +221,9 @@ Jede Zeile ist antippbar und öffnet die Position zum Ändern. Auf dem Computer 
 
 Beide Rechner liegen im eigenen Hauptbereich **Werkzeuge** und sind einzeln anklickbar.
 
-**Zakat-Rechner** — rechnet die Zakat auf Geldvermögen nach **hanafitischer** und **schafiitischer** Lehre.
+**Zakat-Rechner** — zeigt das Ergebnis: ob Zakat fällig wird, wie viel, was monatlich zurückzulegen wäre und wie viel deiner laufenden Spenden schon darauf einzahlen. Eingestellt wird nichts davon hier, sondern unter *Einstellungen → Zakat*; zwei Knöpfe führen direkt dorthin beziehungsweise frischen die Tagespreise auf.
+
+Unter **Einstellungen → Zakat** liegt alles zum Pflegen an einem Ort: Rechtsschule (**hanafitisch** oder **schafiitisch**), Grundlage der Schwelle, Tagespreise samt Abruf-Knopf, die Vermögensposten, der Stichtag mit islamischem Kalender und die schon bezahlte Zakat.
 
 - Rechtsschule wählen; die Schwelle (Nisab) wechselt automatisch mit — Silber bei Hanafi, Gold bei Schafi'i, beides umstellbar
 - Vermögenswerte eintragen: Bargeld, Kontoguthaben, Gold und Silber in Gramm, Handelsware, Anlagen, Forderungen, Schulden
@@ -370,8 +372,8 @@ Alternativ: Auf der Startseite des Repositories **Add file → Upload files**, d
 Nach ein bis zwei Minuten ist die neue Fassung online.
 
 > **Wichtig bei Aktualisierungen:** Weil die App offline funktioniert, hält sich der Browser eine Kopie. Damit die neue Fassung ankommt, muss in der Datei `sw.js` die Zeile
-> `const CACHE_NAME = "lohnwerk-v16";`
-> auf eine neue Nummer geändert werden — also `lohnwerk-v17`, `lohnwerk-v18` und so weiter.
+> `const CACHE_NAME = "lohnwerk-v17";`
+> auf eine neue Nummer geändert werden — also `lohnwerk-v18`, `lohnwerk-v19` und so weiter.
 > Danach die App schließen und neu öffnen; manchmal braucht es zwei Starts. **Deine Daten bleiben dabei erhalten.**
 
 ---
