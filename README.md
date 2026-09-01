@@ -158,14 +158,20 @@ Wenn du erst mal schauen willst, wie das Ganze aussieht: Tippe auf **Mit Beispie
 
 ### Die fünf Bereiche
 
-| Bereich | Was du dort machst |
-|---|---|
-| **Übersicht** | Die wichtigste Zahl: Was bleibt im Monat übrig — und wie viel davon fest verplant ist. Dazu der Geldfluss und die nächsten Abbuchungen. Ein Knopf schaltet auf die einfache Tabellenansicht um. |
-| **Werkzeuge** | Zakat-Rechner, Vermögensrechner und Sparziel-Rechner, einzeln anklickbar. |
-| **Auswertung** | Vier Reiter: **Monatsblatt** (die schlichte Tabellenansicht), **Ausgaben** (Diagramme), **Sparen** (Hochrechnung mit Rendite und Inflation), **Analyse** (Quoten, Einsparpotenzial, Was-wäre-wenn), **Werkzeuge** (Vermögensrechner, Zakat-Rechner). |
-| **Einstellungen** | **Deine Zahlen** (Einnahmen und Ausgaben eintragen), Zakat-Vermögen, Konten, Tags, Zahlungswege, Profile, Annahmen für die Hochrechnung, Sicherungen, Hell/Dunkel. |
+Jeder Reiter beantwortet genau eine Frage. Was du eintippst, liegt in **Zahlen** — sonst nirgends.
 
-Die Listen für **Einnahmen** und **Ausgaben** liegen bewusst in den Einstellungen statt in der unteren Leiste: Eingetragen wird einmal, danach nur noch bei Änderungen. Ein Pfeil oben links führt zurück.
+| Reiter | Die Frage dahinter | Was drin liegt |
+|---|---|---|
+| **Übersicht** | Wie stehe ich da? | Was bleibt im Monat übrig, wie viel davon fest verplant ist, der Geldfluss, die nächsten Abbuchungen. Ein Knopf schaltet auf die einfache Tabellenansicht um. |
+| **Zahlen** | Was trage ich ein? | Drei Unterreiter: **Einnahmen**, **Ausgaben** (mit Sparen) und **Vermögen** (Konten, Gold, Silber, Bitcoin, Schulden). |
+| **Auswertung** | Was sagen die Zahlen? | Vier Unterreiter: **Ausgaben** (Diagramme), **Analyse** (Quoten, Einsparpotenzial, Was-wäre-wenn), **Sparen** (Hochrechnung mit Rendite und Inflation), **Rechner** (Vermögens- und Sparziel-Rechner). |
+| **Zakat** | Was schulde ich? | Vier Unterreiter: **Ergebnis** (der Rechner), **Einstellen** (Rechtsschule, Schwelle, Tagespreise, schon Entrichtetes), **Kalender** (Stichtag im islamischen Jahr), **Wissen** (die Erklärungen zum Ausklappen). |
+| **Einstellungen** | Wie läuft die App? | Profile, Konten, Tags, Zahlungswege, Annahmen für die Hochrechnung, Sicherungen, Hell/Dunkel, Fassung. |
+
+Zwei Regeln halten das zusammen:
+
+- **Eingetragen wird nur unter Zahlen.** Auch die Vermögensposten für die Zakat — der Zakat-Reiter verweist dorthin, statt eine zweite Eingabestelle aufzumachen.
+- **Einstellungen enthält nichts über dein Geld,** nur über die App. Deine Beträge stehen dort nirgends.
 
 ### Wie Lohnwerk rechnet — der wichtigste Punkt
 
@@ -215,18 +221,25 @@ Einkommen                    3.930,67 €
 
 Jede Zeile ist antippbar und öffnet die Position zum Ändern. Auf dem Computer stehen die Blöcke nebeneinander, auf dem Handy untereinander. Unten gibt es die Zusammenfassung zum Kopieren.
 
-### Werkzeuge
+### Die Rechner
 
 **Vermögensrechner** — Startkapital, monatliche oder jährliche Einzahlung, erwartete Rendite und Laufzeit eintragen. Er zeigt Endbetrag, Eingezahltes, Gewinn und die Kaufkraft in heutigem Geld, dazu den Verlauf als Diagramm. Er ändert nichts an deinen gespeicherten Daten.
 
-Beide Rechner liegen im eigenen Hauptbereich **Werkzeuge** und sind einzeln anklickbar.
+Beide Rechner liegen unter *Auswertung → Rechner* und sind einzeln anklickbar. Der Zakat-Rechner nicht — der hat seinen eigenen Reiter.
 
-**Zakat-Rechner** — zeigt das Ergebnis: ob Zakat fällig wird, wie viel, was monatlich zurückzulegen wäre und wie viel deiner laufenden Spenden schon darauf einzahlen. Eingestellt wird nichts davon hier, sondern unter *Einstellungen → Zakat*; zwei Knöpfe führen direkt dorthin beziehungsweise frischen die Tagespreise auf.
+**Zakat-Rechner** — liegt unter *Zakat → Ergebnis* und zeigt: ob Zakat fällig wird, wie viel, was davon schon entrichtet ist, was offen bleibt, was monatlich zurückzulegen wäre und wie viel deiner laufenden Spenden schon darauf einzahlen.
 
-Unter **Einstellungen → Zakat** liegt alles zum Pflegen an einem Ort: Rechtsschule (**hanafitisch** oder **schafiitisch**), Grundlage der Schwelle, Tagespreise samt Abruf-Knopf, die Vermögensposten, der Stichtag mit islamischem Kalender und die schon bezahlte Zakat.
+Der Reiter **Zakat** hat vier Unterreiter:
+
+- **Ergebnis** — die Rechnung und die Aufschlüsselung
+- **Einstellen** — Rechtsschule (**hanafitisch** oder **schafiitisch**), Grundlage der Schwelle, Tagespreise samt Abruf-Knopf, schon entrichtete Zakat
+- **Kalender** — der Stichtag, wahlweise nach islamischem oder gewöhnlichem Datum, mit dem laufenden Hidschri-Jahr
+- **Wissen** — die Erklärungen zum Ausklappen
+
+Die Vermögensposten selbst stehen nicht hier, sondern unter *Zahlen → Vermögen*. Ein Verweis im Reiter **Einstellen** führt direkt dorthin.
 
 - Rechtsschule wählen; die Schwelle (Nisab) wechselt automatisch mit — Silber bei Hanafi, Gold bei Schafi'i, beides umstellbar
-- Vermögenswerte eintragen: Bargeld, Kontoguthaben, Gold und Silber in Gramm, Handelsware, Anlagen, Forderungen, Schulden
+- Vermögenswerte unter *Zahlen → Vermögen* eintragen: Bargeld, Kontoguthaben, Gold und Silber in Gramm, Handelsware, Anlagen, Forderungen, Schulden
 - Der Rechner zeigt Schwelle, zakatpflichtiges Vermögen und die fälligen 2,5 %
 - Darunter steht, **wie viel du monatlich zurücklegen müsstest**, um den Jahresbetrag beisammen zu haben — der Betrag geteilt durch zwölf
 - Ein Knopf trägt die Zakat als jährliche Position ein. Sie taucht dann im Monatsblatt und in der Rücklage für Jahresrechnungen auf; ein zweiter Klick später aktualisiert nur den Betrag
@@ -234,7 +247,7 @@ Unter **Einstellungen → Zakat** liegt alles zum Pflegen an einem Ort: Rechtssc
 
 ### Dein Vermögen verwalten
 
-Unter *Einstellungen → Zakat-Vermögen* legst du an, was du besitzt. Jeder Posten hat eine Art:
+Unter *Zahlen → Vermögen* legst du an, was du besitzt. Jeder Posten hat eine Art:
 
 | Art | Was du einträgst |
 |---|---|
