@@ -1328,7 +1328,7 @@ details.klapp .klapp-inhalt{padding-bottom:var(--s4);}
 /* Die Fassung der App. Sie steht in den Einstellungen, damit du prüfen
    kannst, ob dein Gerät die neueste Version hat. Bei jeder Änderung
    zusammen mit CACHE_NAME in sw.js hochzählen. */
-const APP_VERSION = "15";
+const APP_VERSION = "16";
 
 const SPEICHER_SCHLUESSEL = "lohnwerk.v1";
 const SPEICHER_DEFEKT = "lohnwerk.backup.defekt";
@@ -1746,6 +1746,9 @@ function zustandNeu(){
            art "silber" → wert ist Gramm
            art "btc"    → wert ist die Menge Bitcoin */
         posten: [],
+        /* Was du in diesem Zakat-Jahr schon gezahlt hast. Rein zur
+           Übersicht — der Monatsbetrag bleibt davon unberührt. */
+        bezahltCent: 0,
         stand: null,
         /* Dein persönlicher Zakat-Stichtag (ISO-Datum). Das islamische Jahr
            ist rund elf Tage kürzer als das Sonnenjahr — der Stichtag wandert
@@ -1871,6 +1874,7 @@ function zustandSaeubern(roh){
     grundlage: ["silber","gold"].includes(zk.grundlage) ? zk.grundlage : "silber",
     stand: typeof zk.stand === "string" ? zk.stand : null,
     stichtag: typeof zk.stichtag === "string" ? zk.stichtag : null,
+    bezahltCent: Number.isFinite(+zk.bezahltCent) ? Math.max(0, Math.round(+zk.bezahltCent)) : 0,
     posten: []
   };
 
@@ -4945,6 +4949,134 @@ function vermoegensRechner(){
    ---------------------------------------------------------------- */
 
 /* ----------------------------------------------------------------
+   ISLAMISCHER KALENDER
+
+   Der Browser bringt den Hidschri-Kalender selbst mit — es wird also
+   nichts nachgeladen. Gerechnet wird nach Umm al-Qura, dem Kalender,
+   dem auch Saudi-Arabien folgt.
+
+   Wichtig: Das ist eine Berechnung, keine Mondsichtung. Vor Ort kann
+   der tatsächliche Monatsbeginn ein bis zwei Tage abweichen.
+   ---------------------------------------------------------------- */
+
+const HIJRI_MONATE = [
+  "Muharram", "Safar", "Rabi' al-awwal", "Rabi' al-thani",
+  "Dschumada al-awwal", "Dschumada al-thani", "Radschab", "Schaban",
+  "Ramadan", "Schawwal", "Dhul-Qada", "Dhul-Hidscha"
+];
+const RAMADAN_MONAT = 9;
+
+/* Welcher Kalender steht zur Verfügung? Umm al-Qura bevorzugt. */
+const HIJRI_KALENDER = (() => {
+  for(const k of ["islamic-umalqura","islamic","islamic-civil"]){
+    try{
+      const probe = new Intl.DateTimeFormat("en-US-u-ca-"+k, { year:"numeric" }).formatToParts(new Date());
+      if(probe.some(t => t.type === "year")) return k;
+    }catch(fehler){ /* nächsten versuchen */ }
+  }
+  return null;
+})();
+
+/** Das Hidschri-Datum zu einem gewöhnlichen Datum. */
+function hijriVonDatum(datum){
+  if(!HIJRI_KALENDER) return null;
+  try{
+    const teile = new Intl.DateTimeFormat("en-US-u-ca-"+HIJRI_KALENDER,
+      { day:"numeric", month:"numeric", year:"numeric" }).formatToParts(datum);
+    const o = {};
+    teile.forEach(t => { if(t.type !== "literal") o[t.type] = t.value; });
+    const jahr = parseInt(o.year,10), monat = parseInt(o.month,10), tag = parseInt(o.day,10);
+    if(!Number.isFinite(jahr) || !Number.isFinite(monat) || !Number.isFinite(tag)) return null;
+    return { jahr, monat, tag };
+  }catch(fehler){ return null; }
+}
+
+/** Vergleicht zwei Hidschri-Daten: negativ, 0 oder positiv. */
+function hijriVergleich(a, b){
+  return (a.jahr - b.jahr) || (a.monat - b.monat) || (a.tag - b.tag);
+}
+
+/**
+ * Das gewöhnliche Datum zu einem Hidschri-Datum.
+ * Erst grob geschätzt, dann tageweise angenähert — der Browser kann
+ * nur in eine Richtung rechnen, deshalb dieser Umweg.
+ */
+function datumVonHijri(hJahr, hMonat, hTag){
+  if(!HIJRI_KALENDER) return null;
+  const ziel = { jahr:hJahr, monat:hMonat, tag:hTag };
+  /* Ein Mondjahr hat rund 354,367 Tage, ein Mondmonat rund 29,531. */
+  const tage = (hJahr - 1) * 354.367 + (hMonat - 1) * 29.531 + (hTag - 1);
+  let d = new Date(Date.UTC(622, 6, 16, 12) + Math.round(tage) * 86400000);
+
+  /* Grobe Annäherung in großen Schritten. */
+  for(let i = 0; i < 30; i++){
+    const ist = hijriVonDatum(d);
+    if(!ist) return null;
+    const abstand = (ziel.jahr - ist.jahr) * 354.367
+                  + (ziel.monat - ist.monat) * 29.531
+                  + (ziel.tag - ist.tag);
+    if(Math.abs(abstand) < 1) break;
+    d = new Date(d.getTime() + Math.round(abstand) * 86400000);
+  }
+  /* Feinschliff Tag für Tag. */
+  for(let i = 0; i < 60; i++){
+    const ist = hijriVonDatum(d);
+    if(!ist) return null;
+    const v = hijriVergleich(ist, ziel);
+    if(v === 0) return d;
+    d = new Date(d.getTime() + (v < 0 ? 1 : -1) * 86400000);
+  }
+  return null;
+}
+
+/** Die zwölf Monatsanfänge eines Hidschri-Jahres als gewöhnliche Daten. */
+function hijriJahresuebersicht(hJahr){
+  const monate = [];
+  for(let m = 1; m <= 12; m++){
+    const beginn = datumVonHijri(hJahr, m, 1);
+    const naechster = m < 12 ? datumVonHijri(hJahr, m+1, 1) : datumVonHijri(hJahr+1, 1, 1);
+    monate.push({
+      nummer: m,
+      name: HIJRI_MONATE[m-1],
+      beginn,
+      ende: naechster ? new Date(naechster.getTime() - 86400000) : null,
+      tage: (beginn && naechster) ? Math.round((naechster - beginn) / 86400000) : null
+    });
+  }
+  return monate;
+}
+
+/** Der nächste Ramadan-Beginn ab heute. */
+function naechsterRamadan(){
+  const jetzt = heute();
+  const h = hijriVonDatum(jetzt);
+  if(!h) return null;
+  let jahr = h.jahr;
+  let beginn = datumVonHijri(jahr, RAMADAN_MONAT, 1);
+  /* Ist der Ramadan dieses Jahres schon vorbei, nimm den nächsten. */
+  if(beginn && beginn < jetzt && !(h.monat === RAMADAN_MONAT)){
+    if(h.monat > RAMADAN_MONAT){
+      jahr++;
+      beginn = datumVonHijri(jahr, RAMADAN_MONAT, 1);
+    }
+  }
+  if(!beginn) return null;
+  const ende = datumVonHijri(jahr, RAMADAN_MONAT + 1, 1);
+  return {
+    jahr, beginn,
+    ende: ende ? new Date(ende.getTime() - 86400000) : null,
+    laeuft: h.monat === RAMADAN_MONAT,
+    tageHin: Math.max(0, Math.round((beginn - jetzt) / 86400000))
+  };
+}
+
+/** Ein Hidschri-Datum in Klartext. */
+function hijriLesbar(h){
+  if(!h) return "—";
+  return `${h.tag}. ${HIJRI_MONATE[h.monat-1]} ${h.jahr}`;
+}
+
+/* ----------------------------------------------------------------
    ZAKAT-VERMÖGEN
    Die Posten liegen in den Einstellungen und werden hier bewertet.
    ---------------------------------------------------------------- */
@@ -5705,55 +5837,213 @@ function stichtagBereich(){
   const box = el("div",{ style:"margin-top:16px;padding-top:14px;border-top:1px solid var(--linie)" });
   const gesetzt = S.einstellungen.zakat?.stichtag || null;
 
-  const feld = el("input",{ class:"eingabe", type:"date", value: gesetzt || "",
-    "aria-label":"Dein Zakat-Stichtag",
-    onchange:(e) => {
-      const wert = e.target.value;
-      S.einstellungen.zakat.stichtag = wert || null;
-      speichern();
-      zeichneAuswertung();
-    }});
-
   box.appendChild(el("div",{ class:"t-kapitaelchen", style:"margin-bottom:8px", text:"Dein Stichtag" }));
 
-  if(!gesetzt){
-    box.appendChild(el("p",{ class:"t-klein", style:"line-height:1.55;margin-bottom:10px",
-      text:"Trag den Tag ein, an dem du deine Zakat abrechnest — meist der Tag, an dem dein Vermögen "
+  /* --- Der eingetragene Stichtag mit Countdown --- */
+  if(gesetzt){
+    /* Vom eingetragenen Datum in Mondjahr-Schritten vorwärts, bis er
+       in der Zukunft liegt. Auf Tagesbeginn vergleichen, damit ein
+       Stichtag am heutigen Tag als „heute“ gilt. */
+    const start = new Date(gesetzt + "T12:00:00");
+    const jetzt = heute();
+    const heuteMittag = new Date(jetzt.getFullYear(), jetzt.getMonth(), jetzt.getDate(), 12, 0, 0);
+    let naechster = new Date(start.getTime());
+    let sicherung = 0;
+    while(naechster < heuteMittag && sicherung < 200){
+      naechster = new Date(naechster.getTime() + MONDJAHR_TAGE * 86400000);
+      sicherung++;
+    }
+    const tageHin = Math.max(0, Math.round((naechster - heuteMittag) / 86400000));
+    const seitLetztem = MONDJAHR_TAGE - tageHin;
+    const ratenBisher = Math.floor(seitLetztem / 30.44);
+    const hStart = hijriVonDatum(start);
+
+    box.appendChild(el("div",{ style:"display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:6px" },
+      el("span",{ style:"font-size:20px;font-weight:640;letter-spacing:-.02em",
+        text: tageHin === 0 ? "heute" : `in ${tageHin} ${plural(tageHin,"Tag","Tagen")}` }),
+      el("span",{ class:"t-label zahl", text: datumLesbar(naechster.toISOString()) })
+    ));
+    if(hStart){
+      box.appendChild(el("p",{ class:"t-klein", style:"margin-bottom:10px",
+        text: `Nach islamischem Kalender: ${hStart.tag}. ${HIJRI_MONATE[hStart.monat-1]}` }));
+    }
+    box.appendChild(el("p",{ class:"t-klein", style:"line-height:1.55;margin-bottom:12px",
+      text: `Bis dahin sind rund ${ratenBisher} von zwölf Monatsraten geflossen. `
+          + "Ein Mondjahr hat etwa 354 Tage — elf weniger als ein Sonnenjahr. Rechne am Stichtag deshalb "
+          + "genau nach, statt anzunehmen, zwölf Raten seien automatisch genug." }));
+  } else {
+    box.appendChild(el("p",{ class:"t-klein", style:"line-height:1.55;margin-bottom:12px",
+      text:"Wähle den Tag, an dem du deine Zakat abrechnest — meist der Tag, an dem dein Vermögen "
          + "erstmals über der Schwelle lag. Viele nehmen dafür einen festen Tag im Ramadan." }));
-    box.appendChild(feld);
+  }
+
+  /* --- Die Wahl: islamisch oder gewöhnlich --- */
+  const wahlBox = el("div",{});
+  box.appendChild(wahlBox);
+
+  const gewoehnlichesFeld = el("input",{ class:"eingabe", type:"date", value: gesetzt || "",
+    "aria-label":"Stichtag als gewöhnliches Datum",
+    onchange:(e) => {
+      S.einstellungen.zakat.stichtag = e.target.value || null;
+      speichern();
+      zeichneWerkzeuge();
+    }});
+
+  if(!HIJRI_KALENDER){
+    /* Sollte der Browser den Hidschri-Kalender nicht kennen. */
+    wahlBox.appendChild(gewoehnlichesFeld);
     return box;
   }
 
-  /* Den nächsten Stichtag bestimmen: vom eingetragenen Datum aus in
-     Mondjahr-Schritten vorwärts, bis er in der Zukunft liegt. */
-  const start = new Date(gesetzt + "T12:00:00");
-  /* Auf Tagesbeginn vergleichen, damit ein Stichtag am heutigen Tag
-     als „heute“ gilt und nicht schon aufs nächste Jahr springt. */
-  const jetzt = heute();
-  const heuteMittag = new Date(jetzt.getFullYear(), jetzt.getMonth(), jetzt.getDate(), 12, 0, 0);
-  let naechster = new Date(start.getTime());
-  let sicherung = 0;
-  while(naechster < heuteMittag && sicherung < 200){
-    naechster = new Date(naechster.getTime() + MONDJAHR_TAGE * 86400000);
-    sicherung++;
-  }
-  const tageHin = Math.max(0, Math.round((naechster - heuteMittag) / 86400000));
-  /* Wie viele Monatsraten fließen bis dahin noch? */
-  const seitLetztem = MONDJAHR_TAGE - tageHin;
-  const ratenBisher = Math.floor(seitLetztem / 30.44);
-
-  box.appendChild(el("div",{ style:"display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:10px" },
-    el("span",{ style:"font-size:20px;font-weight:640;letter-spacing:-.02em",
-      text: tageHin === 0 ? "heute" : `in ${tageHin} ${plural(tageHin,"Tag","Tagen")}` }),
-    el("span",{ class:"t-label zahl", text: datumLesbar(naechster.toISOString()) })
+  const modus = UI.stichtagModus || "islamisch";
+  wahlBox.appendChild(el("div",{ class:"segment breit", style:"margin-bottom:12px", role:"group",
+    "aria-label":"Art der Datumsangabe" },
+    el("button",{ type:"button", "aria-pressed": modus === "islamisch" ? "true":"false",
+      text:"Islamisch", onclick:() => { UI.stichtagModus = "islamisch"; zeichneWerkzeuge(); }}),
+    el("button",{ type:"button", "aria-pressed": modus === "gewoehnlich" ? "true":"false",
+      text:"Kalenderdatum", onclick:() => { UI.stichtagModus = "gewoehnlich"; zeichneWerkzeuge(); }})
   ));
-  box.appendChild(el("p",{ class:"t-klein", style:"line-height:1.55;margin-bottom:10px",
-    text: `Bis dahin sind rund ${ratenBisher} von zwölf Monatsraten geflossen. `
-        + "Ein Mondjahr hat etwa 354 Tage — elf weniger als ein Sonnenjahr. Rechne am Stichtag deshalb "
-        + "genau nach, statt anzunehmen, zwölf Raten seien automatisch genug." }));
-  box.appendChild(feld);
+
+  if(modus === "gewoehnlich"){
+    wahlBox.appendChild(gewoehnlichesFeld);
+    return box;
+  }
+
+  /* --- Islamische Auswahl: Monat und Tag --- */
+  const hHeute = hijriVonDatum(heute());
+  const hGesetzt = gesetzt ? hijriVonDatum(new Date(gesetzt + "T12:00:00")) : null;
+  let gewMonat = hGesetzt ? hGesetzt.monat : RAMADAN_MONAT;
+  let gewTag = hGesetzt ? hGesetzt.tag : 1;
+
+  const vorschau = el("div",{ class:"feld-hinweis", style:"margin-top:10px" });
+
+  const uebernehmen = () => {
+    /* Das nächste Vorkommen dieses islamischen Datums ab heute. */
+    let jahr = hHeute ? hHeute.jahr : 1447;
+    let d = datumVonHijri(jahr, gewMonat, gewTag);
+    const jetzt = heute();
+    const heuteMittag = new Date(jetzt.getFullYear(), jetzt.getMonth(), jetzt.getDate(), 12, 0, 0);
+    if(d && d < heuteMittag){
+      const naechstes = datumVonHijri(jahr + 1, gewMonat, gewTag);
+      if(naechstes) d = naechstes;
+    }
+    if(!d){
+      vorschau.textContent = "Dieses Datum lässt sich nicht umrechnen. Nimm einen anderen Tag.";
+      return null;
+    }
+    const p = n => String(n).padStart(2,"0");
+    const iso = d.getFullYear()+"-"+p(d.getMonth()+1)+"-"+p(d.getDate());
+    const tage = Math.round((d - heuteMittag) / 86400000);
+    vorschau.textContent = `Entspricht ${datumLesbar(d.toISOString())}`
+      + (tage === 0 ? " — das ist heute." : tage > 0 ? ` — in ${tage} ${plural(tage,"Tag","Tagen")}.` : ".");
+    return iso;
+  };
+
+  const monatSel = el("select",{ class:"eingabe", "aria-label":"Islamischer Monat",
+    onchange:(e) => { gewMonat = +e.target.value; uebernehmen(); }},
+    HIJRI_MONATE.map((name,i) => el("option",{ value:i+1, selected:(i+1)===gewMonat,
+      text: (i+1) + ". " + name + ((i+1) === RAMADAN_MONAT ? " ☾" : "") })));
+
+  const tagFeld = el("input",{ class:"eingabe", type:"number", min:"1", max:"30",
+    inputmode:"numeric", value:String(gewTag), "aria-label":"Tag im Monat",
+    oninput:(e) => { gewTag = klemmen(parseInt(e.target.value,10)||1, 1, 30); uebernehmen(); }});
+
+  wahlBox.appendChild(el("div",{ class:"feld-reihe" },
+    el("div",{ style:"flex:2" },
+      el("div",{ class:"t-label", style:"margin-bottom:4px;font-size:12px", text:"Monat" }), monatSel),
+    el("div",{ style:"flex:1" },
+      el("div",{ class:"t-label", style:"margin-bottom:4px;font-size:12px", text:"Tag" }), tagFeld)
+  ));
+  wahlBox.appendChild(vorschau);
+  uebernehmen();
+
+  wahlBox.appendChild(el("button",{ class:"knopf primaer breit", type:"button", style:"margin-top:12px",
+    onclick:() => {
+      const iso = uebernehmen();
+      if(!iso) return;
+      S.einstellungen.zakat.stichtag = iso;
+      speichern();
+      zeichneWerkzeuge();
+      toast(`Stichtag gesetzt: ${gewTag}. ${HIJRI_MONATE[gewMonat-1]}`);
+    }}, icon("ic-check"), "Als Stichtag übernehmen"));
+
+  /* --- Der islamische Kalender zum Nachschlagen --- */
+  wahlBox.appendChild(hijriKalenderKarte());
   return box;
 }
+
+/** Zeigt das laufende Hidschri-Jahr mit allen Monatsanfängen. */
+function hijriKalenderKarte(){
+  const hHeute = hijriVonDatum(heute());
+  if(!hHeute) return el("div",{});
+
+  const jahr = UI.hijriJahr || hHeute.jahr;
+  const monate = hijriJahresuebersicht(jahr);
+  const ram = naechsterRamadan();
+
+  const box = el("div",{ style:"margin-top:18px;padding-top:14px;border-top:1px solid var(--linie)" });
+
+  box.appendChild(el("div",{ style:"display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:4px" },
+    el("button",{ class:"sym", type:"button", "aria-label":"Vorheriges Jahr",
+      onclick:() => { UI.hijriJahr = jahr - 1; zeichneWerkzeuge(); } }, icon("ic-links")),
+    el("div",{ style:"flex:1;text-align:center" },
+      el("div",{ class:"t-h3", text:jahr + " AH" }),
+      el("div",{ class:"t-klein", text:"heute: " + hijriLesbar(hHeute) })
+    ),
+    el("button",{ class:"sym", type:"button", "aria-label":"Nächstes Jahr",
+      onclick:() => { UI.hijriJahr = jahr + 1; zeichneWerkzeuge(); } }, icon("ic-rechts"))
+  ));
+
+  /* Ramadan hervorgehoben */
+  if(ram && ram.beginn){
+    box.appendChild(el("div",{ class:"banner", style:"margin:10px 0 14px" },
+      icon("ic-kalender"),
+      el("div",{ class:"inhalt-b", style:"line-height:1.55" },
+        el("strong",{ text: ram.laeuft ? "Ramadan läuft gerade" : `Ramadan ${ram.jahr} beginnt in ${ram.tageHin} ${plural(ram.tageHin,"Tag","Tagen")}` }),
+        el("div",{ style:"margin-top:2px",
+          text: `${datumLesbar(ram.beginn.toISOString())}`
+              + (ram.ende ? ` bis ${datumLesbar(ram.ende.toISOString())}` : "") })
+      )
+    ));
+  }
+
+  const liste = el("div",{});
+  monate.forEach(m => {
+    if(!m.beginn) return;
+    const istRamadan = m.nummer === RAMADAN_MONAT;
+    const istJetzt = hHeute.jahr === jahr && hHeute.monat === m.nummer;
+    liste.appendChild(el("button",{ class:"datenzeile", type:"button",
+      /* Der laufende Monat wird durch einen Balken hervorgehoben, nicht
+         durch eine Fläche — die würde den Textkontrast drücken. */
+      style:"width:100%;text-align:left" + (istJetzt ? ";box-shadow:inset 3px 0 0 var(--akzent);padding-left:10px" : ""),
+      onclick:() => {
+        const p = n => String(n).padStart(2,"0");
+        const d = m.beginn;
+        S.einstellungen.zakat.stichtag = d.getFullYear()+"-"+p(d.getMonth()+1)+"-"+p(d.getDate());
+        speichern();
+        zeichneWerkzeuge();
+        toast(`Stichtag auf den 1. ${m.name} gesetzt.`);
+      }},
+      el("span",{ class:"dz-name" },
+        el("span",{ style: istRamadan ? "font-weight:650;color:var(--akzent)" : null,
+          text: m.name + (istRamadan ? " ☾" : "") }),
+        el("span",{ class:"neben", text: m.tage ? `${m.tage} Tage` : "" })
+      ),
+      el("span",{ class:"dz-wert", style:"font-weight:500" },
+        el("span",{ text: m.beginn.toLocaleDateString("de-DE",{ day:"numeric", month:"short" }) }),
+        el("span",{ class:"neben", text: m.beginn.getFullYear() })
+      )
+    ));
+  });
+  box.appendChild(liste);
+
+  box.appendChild(el("p",{ class:"t-klein", style:"margin-top:12px;line-height:1.55",
+    text:"Berechnet nach dem Umm-al-Qura-Kalender. Das ist eine Rechnung, keine Mondsichtung — "
+       + "vor Ort kann der Monatsbeginn ein bis zwei Tage abweichen. Tippe einen Monat an, "
+       + "um seinen ersten Tag als Stichtag zu übernehmen." }));
+  return box;
+}
+
 
 /**
  * Trägt den offenen Zakat-Rest als Position ein oder passt sie an.
@@ -7291,6 +7581,72 @@ function zeichneEinstellungen(){
     ));
   }
   wurzel.appendChild(zkKarte);
+
+  /* --- Schon gezahlte Zakat: reine Buchführung --- */
+  const bezahltFeld = betragsFeld(S.einstellungen.zakat.bezahltCent || 0, "In diesem Jahr überwiesen");
+  bezahltFeld.feld.removeAttribute("data-autofokus");
+  const bezahltHinweis = bezahltFeld.box.querySelector(".feld-hinweis");
+  if(bezahltHinweis) bezahltHinweis.remove();
+  bezahltFeld.feld.addEventListener("change", () => {
+    S.einstellungen.zakat.bezahltCent = Math.max(0, bezahltFeld.wert() ?? 0);
+    aendern();
+  });
+
+  const bezahltKarte = el("div",{ class:"karte" },
+    el("div",{ class:"karte-kopf" }, el("h2",{ text:"Schon bezahlte Zakat" })),
+    el("p",{ class:"t-klein", style:"margin-top:-8px;margin-bottom:16px;line-height:1.55",
+      text:"Trag hier ein, was du in diesem Zakat-Jahr bereits überwiesen hast. Die Zahl dient nur "
+         + "der Übersicht — an deinem Monatsbetrag und an den Positionen ändert sie nichts." }),
+    bezahltFeld.box
+  );
+
+  /* Die Gegenüberstellung, sobald eine Zakat berechnet werden kann. */
+  const zv = zakatVermoegen();
+  const zNisab = S.einstellungen.zakat.grundlage === "silber"
+    ? Math.round(NISAB_SILBER_GRAMM * (S.einstellungen.silberPreisCent||0))
+    : Math.round(NISAB_GOLD_GRAMM * (S.einstellungen.goldPreisCent||0));
+  if(zNisab > 0 && zv.netto >= zNisab){
+    const soll = Math.round(zv.netto * ZAKAT_SATZ);
+    const bezahlt = S.einstellungen.zakat.bezahltCent || 0;
+    const rest = soll - bezahlt;
+    const zeile = (name, wert, farbe, fett) => el("div",{ class:"datenzeile" },
+      el("span",{ class:"dz-name", style: fett ? "font-weight:600" : null, text:name }),
+      el("span",{ class:"dz-wert", style: farbe ? `color:${farbe}` : null, text:wert })
+    );
+    bezahltKarte.appendChild(el("div",{ style:"margin-top:4px" },
+      zeile("Zakat gesamt", euro(soll)),
+      zeile("Davon schon gezahlt", "− "+euro(bezahlt), bezahlt > 0 ? "var(--gruen)" : null),
+      el("div",{ class:"datenzeile", style:"border-top:1.5px solid var(--linie-stark)" },
+        el("span",{ class:"dz-name", style:"font-weight:650",
+          text: rest <= 0 ? "Vollständig gezahlt" : "Bleibt offen" }),
+        el("span",{ class:"dz-wert", style:`font-size:17px;color:${rest <= 0 ? "var(--gruen)" : "var(--text)"}`,
+          text: rest <= 0 ? euro(0) : euro(rest) })
+      )
+    ));
+    if(rest < 0){
+      bezahltKarte.appendChild(el("p",{ class:"t-klein", style:"margin-top:10px;line-height:1.5",
+        text:`Du hast ${euro(-rest)} mehr gezahlt, als die Rechnung ergibt. Das Zuviel gilt als freiwillige Gabe.` }));
+    }
+    bezahltKarte.appendChild(el("div",{ class:"knopf-reihe", style:"margin-top:14px" },
+      el("button",{ class:"knopf klein rahmen", type:"button",
+        onclick:() => {
+          const alt = S.einstellungen.zakat.bezahltCent || 0;
+          S.einstellungen.zakat.bezahltCent = 0;
+          aendern();
+          toast("Zurückgesetzt — für ein neues Zakat-Jahr.", () => {
+            S.einstellungen.zakat.bezahltCent = alt; aendern();
+          });
+        }},
+        "Auf null setzen")
+    ));
+    bezahltKarte.appendChild(el("p",{ class:"t-klein", style:"margin-top:10px;line-height:1.5",
+      text:"Nach deinem Stichtag beginnt ein neues Zakat-Jahr — dann setzt du den Wert wieder auf null." }));
+  } else {
+    bezahltKarte.appendChild(el("p",{ class:"t-klein", style:"margin-top:12px;line-height:1.5",
+      text:"Sobald dein Vermögen über der Schwelle liegt und die Tagespreise eingetragen sind, "
+         + "steht hier die Gegenüberstellung: Zakat gesamt, davon gezahlt, was offen bleibt." }));
+  }
+  wurzel.appendChild(bezahltKarte);
 
   /* --- Annahmen für die Hochrechnung --- */
   const zahlFeld = (wert, min, max, schritt, platzhalter, setzen) =>

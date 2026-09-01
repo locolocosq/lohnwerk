@@ -258,6 +258,26 @@ Ein Knopf legt für den Rest eine monatliche Position **„Zakat (offener Rest)"
 
 Die Restposition zählt sich dabei nicht selbst mit — sonst würde sie sich selbst erfüllen.
 
+### Islamischer Kalender und Stichtag
+
+Den Stichtag wählst du im **islamischen Kalender**: Monat und Tag, etwa der 1. Ramadan. Die App rechnet um und zeigt das entsprechende Kalenderdatum. Wer lieber ein gewöhnliches Datum eintippt, schaltet mit einem Knopf um.
+
+Darunter steht das laufende Hidschri-Jahr mit allen zwölf Monaten und ihren Anfangsdaten — Ramadan hervorgehoben, mit Countdown bis zum Beginn. Ein Tipp auf einen Monat übernimmt dessen ersten Tag als Stichtag. Mit den Pfeilen blätterst du durch die Jahre.
+
+> Gerechnet wird nach dem Umm-al-Qura-Kalender, den auch Saudi-Arabien verwendet. Das ist eine Berechnung, keine Mondsichtung — vor Ort kann der Monatsbeginn ein bis zwei Tage abweichen.
+
+### Schon bezahlte Zakat
+
+Unter *Einstellungen → Schon bezahlte Zakat* trägst du ein, was du im laufenden Zakat-Jahr bereits überwiesen hast. Die App stellt gegenüber:
+
+```
+Zakat gesamt          600,00 €
+Davon schon gezahlt  − 250,00 €
+Bleibt offen          350,00 €
+```
+
+Das ist reine Buchführung — **an deinem Monatsbetrag ändert sich dadurch nichts.** Nach dem Stichtag setzt du den Wert mit einem Knopf wieder auf null.
+
 ### Stichtag und monatliche Zahlweise
 
 Ein Feld für deinen persönlichen Stichtag zeigt, wie viele Tage bis zur nächsten Abrechnung bleiben und wie viele Monatsraten bis dahin geflossen sind. Der Stichtag wandert dabei automatisch im Mondjahr-Takt weiter — rund 354 Tage, also elf weniger als ein Sonnenjahr.
@@ -350,8 +370,8 @@ Alternativ: Auf der Startseite des Repositories **Add file → Upload files**, d
 Nach ein bis zwei Minuten ist die neue Fassung online.
 
 > **Wichtig bei Aktualisierungen:** Weil die App offline funktioniert, hält sich der Browser eine Kopie. Damit die neue Fassung ankommt, muss in der Datei `sw.js` die Zeile
-> `const CACHE_NAME = "lohnwerk-v15";`
-> auf eine neue Nummer geändert werden — also `lohnwerk-v16`, `lohnwerk-v17` und so weiter.
+> `const CACHE_NAME = "lohnwerk-v16";`
+> auf eine neue Nummer geändert werden — also `lohnwerk-v17`, `lohnwerk-v18` und so weiter.
 > Danach die App schließen und neu öffnen; manchmal braucht es zwei Starts. **Deine Daten bleiben dabei erhalten.**
 
 ---
