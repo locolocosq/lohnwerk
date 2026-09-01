@@ -163,7 +163,8 @@ Wenn du erst mal schauen willst, wie das Ganze aussieht: Tippe auf **Mit Beispie
 | **Übersicht** | Die wichtigste Zahl: Was bleibt im Monat übrig — und wie viel davon fest verplant ist. Dazu der Geldfluss und die nächsten Abbuchungen. |
 | **Einnahmen** | Gehalt, Nebenjob, Kindergeld, Miete aus Untervermietung. |
 | **Ausgaben** | Alles, was rausgeht — und alles, was du zurücklegst. Suchbar, filterbar, gruppierbar. |
-| **Auswertung** | Fünf Reiter: **Monatsblatt** (die schlichte Tabellenansicht), **Ausgaben** (Diagramme), **Sparen** (Hochrechnung mit Rendite und Inflation), **Analyse** (Quoten, Einsparpotenzial, Was-wäre-wenn), **Werkzeuge** (Vermögensrechner, Zakat-Rechner). |
+| **Werkzeuge** | Zakat-Rechner und Vermögensrechner, einzeln anklickbar. |
+| **Auswertung** | Vier Reiter: **Monatsblatt** (die schlichte Tabellenansicht), **Ausgaben** (Diagramme), **Sparen** (Hochrechnung mit Rendite und Inflation), **Analyse** (Quoten, Einsparpotenzial, Was-wäre-wenn), **Werkzeuge** (Vermögensrechner, Zakat-Rechner). |
 | **Einstellungen** | Konten, Tags, Zahlungswege, Profile, Annahmen für die Hochrechnung, Sicherungen, Hell/Dunkel. |
 
 ### Wie Lohnwerk rechnet — der wichtigste Punkt
@@ -197,6 +198,10 @@ Die Annahmen für Inflation, jährliche Steigerung der Sparrate und den Zeitraum
 
 > **Zur Wortwahl:** Lohnwerk spricht durchgehend von **Rendite** und **Gewinn**, nicht von Zinsen. Gerechnet wird mit dem Ertrag einer Anlage — wie bei Gold, Aktien oder einer Beteiligung.
 
+### Einfache Ansicht
+
+Oben auf der Übersicht schaltet ein Knopf zwischen dem Dashboard und der **einfachen Ansicht** um — der schlichten Tabelle mit Einkommen, Blöcken je Zahlungsweg und den Ergebniszeilen. Die Wahl bleibt gespeichert.
+
 ### Das Monatsblatt
 
 Der erste Reiter der Auswertung ist die schlichte Tabellenansicht: Einkommen oben, darunter je ein Block pro Zahlungsweg mit Monats- und Jahresbetrag, ganz unten die Ergebniszeilen.
@@ -215,7 +220,7 @@ Jede Zeile ist antippbar und öffnet die Position zum Ändern. Auf dem Computer 
 
 **Vermögensrechner** — Startkapital, monatliche oder jährliche Einzahlung, erwartete Rendite und Laufzeit eintragen. Er zeigt Endbetrag, Eingezahltes, Gewinn und die Kaufkraft in heutigem Geld, dazu den Verlauf als Diagramm. Er ändert nichts an deinen gespeicherten Daten.
 
-Beide Rechner sind im Reiter **Rechner** einzeln anklickbar — sie stehen nicht untereinander.
+Beide Rechner liegen im eigenen Hauptbereich **Werkzeuge** und sind einzeln anklickbar.
 
 **Zakat-Rechner** — rechnet die Zakat auf Geldvermögen nach **hanafitischer** und **schafiitischer** Lehre.
 
@@ -225,6 +230,19 @@ Beide Rechner sind im Reiter **Rechner** einzeln anklickbar — sie stehen nicht
 - Darunter steht, **wie viel du monatlich zurücklegen müsstest**, um den Jahresbetrag beisammen zu haben — der Betrag geteilt durch zwölf
 - Ein Knopf trägt die Zakat als jährliche Position ein. Sie taucht dann im Monatsblatt und in der Rücklage für Jahresrechnungen auf; ein zweiter Klick später aktualisiert nur den Betrag
 - **Alle Eingaben bleiben gespeichert** — Vermögenswerte, Rechtsschule und Preise. Beim nächsten Mal passt du nur an, was sich geändert hat
+
+### Dein Vermögen verwalten
+
+Unter *Einstellungen → Zakat-Vermögen* legst du an, was du besitzt. Jeder Posten hat eine Art:
+
+| Art | Was du einträgst |
+|---|---|
+| Geldbetrag | Bargeld, Girokonto, Tagesgeld, Aktien, Handelsware, Forderungen |
+| Gold / Silber | die Menge in Gramm |
+| Bitcoin | die Menge in BTC |
+| Schuld | fällige Schulden (nach hanafitischer Lehre abgezogen) |
+
+Du kannst **beliebig viele Posten** anlegen — etwa mehrere Tagesgeldkonten mit eigenem Namen. Gold, Silber und Bitcoin werden mit dem hinterlegten Tagespreis in Euro umgerechnet; den holt derselbe Knopf, der auch die Edelmetallpreise abruft.
 
 ### Laufende Spenden werden abgezogen
 
@@ -333,8 +351,8 @@ Alternativ: Auf der Startseite des Repositories **Add file → Upload files**, d
 Nach ein bis zwei Minuten ist die neue Fassung online.
 
 > **Wichtig bei Aktualisierungen:** Weil die App offline funktioniert, hält sich der Browser eine Kopie. Damit die neue Fassung ankommt, muss in der Datei `sw.js` die Zeile
-> `const CACHE_NAME = "lohnwerk-v11";`
-> auf eine neue Nummer geändert werden — also `lohnwerk-v12`, `lohnwerk-v13` und so weiter.
+> `const CACHE_NAME = "lohnwerk-v12";`
+> auf eine neue Nummer geändert werden — also `lohnwerk-v13`, `lohnwerk-v14` und so weiter.
 > Danach die App schließen und neu öffnen; manchmal braucht es zwei Starts. **Deine Daten bleiben dabei erhalten.**
 
 ---

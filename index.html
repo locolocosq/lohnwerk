@@ -235,14 +235,20 @@ svg{display:block;}
   border-top:1px solid var(--linie);
 }
 .tab{
-  flex:1;min-height:52px;
+  flex:1;min-width:0;min-height:52px;
   display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
-  color:var(--text-3);font-size:10.5px;font-weight:500;letter-spacing:.01em;
-  padding:6px 2px 8px;
+  color:var(--text-3);font-size:9.5px;font-weight:500;letter-spacing:0;
+  padding:6px 1px 8px;
   transition:color 150ms var(--kurve);
   -webkit-tap-highlight-color:transparent;
+  /* Sechs Tabs müssen auch auf 320 px nebeneinander passen. */
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
 }
-.tab svg{width:23px;height:23px;stroke-width:1.7;}
+.tab svg{width:21px;height:21px;stroke-width:1.7;flex:none;}
+@media (min-width:400px){
+  .tab{font-size:10.5px;letter-spacing:.01em;}
+  .tab svg{width:23px;height:23px;}
+}
 .tab[aria-current="page"]{color:var(--akzent);}
 .tab:active{transform:scale(.94);}
 
@@ -1051,6 +1057,8 @@ details.klapp .klapp-inhalt{padding-bottom:var(--s4);}
   .tab{font-size:9.5px;}
   .balken-zeile .bz-name{flex-basis:40%;}
   .balken-zeile .bz-wert{min-width:62px;font-size:12.5px;}
+  .tab{font-size:8.5px;}
+  .tab svg{width:19px;height:19px;}
   /* Die negativen Ränder müssen zur schmaleren Polsterung passen,
      sonst schiebt sich die Seite seitwärts. */
   .chip-scroll{margin:0 calc(-1 * var(--s3));padding-left:var(--s3);padding-right:var(--s3);}
@@ -1213,6 +1221,7 @@ details.klapp .klapp-inhalt{padding-bottom:var(--s4);}
     <button class="sl-knopf" data-nav="einnahmen"><svg aria-hidden="true"><use href="#ic-einnahmen"/></svg>Einnahmen</button>
     <button class="sl-knopf" data-nav="ausgaben"><svg aria-hidden="true"><use href="#ic-ausgaben"/></svg>Ausgaben</button>
     <button class="sl-knopf" data-nav="auswertung"><svg aria-hidden="true"><use href="#ic-auswertung"/></svg>Auswertung</button>
+    <button class="sl-knopf" data-nav="werkzeuge"><svg aria-hidden="true"><use href="#ic-ziel"/></svg>Werkzeuge</button>
     <button class="sl-knopf" data-nav="einstellungen"><svg aria-hidden="true"><use href="#ic-einstellungen"/></svg>Einstellungen</button>
   </nav>
 
@@ -1234,6 +1243,7 @@ details.klapp .klapp-inhalt{padding-bottom:var(--s4);}
       <section class="ansicht" id="v-einnahmen" role="region" aria-label="Einnahmen"></section>
       <section class="ansicht" id="v-ausgaben" role="region" aria-label="Ausgaben"></section>
       <section class="ansicht" id="v-auswertung" role="region" aria-label="Auswertung"></section>
+      <section class="ansicht" id="v-werkzeuge" role="region" aria-label="Werkzeuge"></section>
       <section class="ansicht" id="v-einstellungen" role="region" aria-label="Einstellungen"></section>
     </main>
   </div>
@@ -1244,6 +1254,7 @@ details.klapp .klapp-inhalt{padding-bottom:var(--s4);}
     <button class="tab" data-nav="einnahmen"><svg aria-hidden="true"><use href="#ic-einnahmen"/></svg>Einnahmen</button>
     <button class="tab" data-nav="ausgaben"><svg aria-hidden="true"><use href="#ic-ausgaben"/></svg>Ausgaben</button>
     <button class="tab" data-nav="auswertung"><svg aria-hidden="true"><use href="#ic-auswertung"/></svg>Auswertung</button>
+    <button class="tab" data-nav="werkzeuge"><svg aria-hidden="true"><use href="#ic-ziel"/></svg>Werkzeuge</button>
     <button class="tab" data-nav="einstellungen"><svg aria-hidden="true"><use href="#ic-einstellungen"/></svg>Mehr</button>
   </nav>
 </div>
@@ -1383,6 +1394,34 @@ const SPAR_TAG = { id:SPAR_TAG_ID, name:"Sparen", farbe:"p2", fest:true };
 const ZAKAT_TAG_ID = "tag_zakat";
 const ZAKAT_TAG = { id:ZAKAT_TAG_ID, name:"Zakat", farbe:"p5", fest:true };
 
+/* Die Arten von Vermögensposten im Zakat-Rechner.
+   geld:true  → der Wert ist ein Eurobetrag in Cent
+   geld:false → der Wert ist eine Menge (Gramm oder Bitcoin) */
+const ZAKAT_ARTEN = {
+  geld:   { name:"Geldbetrag", einheit:"€",   geld:true,  icon:"ic-bank",
+            hinweis:"Bargeld, Kontoguthaben, Tagesgeld, Aktien, Handelsware, Forderungen." },
+  gold:   { name:"Gold",       einheit:"g",   geld:false, icon:"ic-sparen",
+            hinweis:"Barren, Münzen und Schmuck — in Gramm." },
+  silber: { name:"Silber",     einheit:"g",   geld:false, icon:"ic-sparen",
+            hinweis:"In Gramm." },
+  btc:    { name:"Bitcoin",    einheit:"BTC", geld:false, icon:"ic-wachstum",
+            hinweis:"Die Menge Bitcoin, zum Beispiel 0,25." },
+  schuld: { name:"Schuld",     einheit:"€",   geld:true,  icon:"ic-warn",
+            hinweis:"Fällige Schulden. Werden nach hanafitischer Lehre abgezogen." }
+};
+
+/* Vorschläge, wenn noch nichts eingetragen ist. */
+const ZAKAT_POSTEN_VORLAGEN = [
+  { name:"Bargeld",              art:"geld" },
+  { name:"Girokonto",            art:"geld" },
+  { name:"Tagesgeld",            art:"geld" },
+  { name:"Aktien und Fonds",     art:"geld" },
+  { name:"Gold",                 art:"gold" },
+  { name:"Silber",               art:"silber" },
+  { name:"Bitcoin",              art:"btc" },
+  { name:"Fällige Schulden",     art:"schuld" }
+];
+
 const TAG_VORSCHLAEGE = [
   { name:"Fixkosten",      farbe:"p7" },
   { name:"Variabel",       farbe:"p5" },
@@ -1499,6 +1538,8 @@ const nfEuro = new Intl.NumberFormat("de-DE",{ style:"currency", currency:"EUR",
 const nfEuroKurz = new Intl.NumberFormat("de-DE",{ style:"currency", currency:"EUR", minimumFractionDigits:0, maximumFractionDigits:0 });
 const nfZahl = new Intl.NumberFormat("de-DE",{ minimumFractionDigits:2, maximumFractionDigits:2 });
 const nfProzent = new Intl.NumberFormat("de-DE",{ minimumFractionDigits:1, maximumFractionDigits:1 });
+/* Bitcoin wird in bis zu acht Nachkommastellen gehandelt. */
+const nfBtc = new Intl.NumberFormat("de-DE",{ minimumFractionDigits:0, maximumFractionDigits:8 });
 
 /** 123456 → "1.234,56 €" */
 function euro(cent){
@@ -1679,19 +1720,28 @@ function zustandNeu(){
       notgroschenZiel: 0,
       /* Wie viele Jahre die Spar-Hochrechnung zeigt. */
       hochrechnungJahre: 10,
+      /* Zeigt die Übersicht das Dashboard oder die schlichte Tabelle? */
+      einfacheAnsicht: false,
       /* Angenommene Inflation in Prozent pro Jahr — für die Kaufkraft-Rechnung. */
       inflation: 2,
       /* Zuletzt benutzte Edelmetallpreise für den Zakat-Rechner, in Cent je Gramm.
          Sie bleiben gespeichert, damit du sie nicht jedes Mal neu eintragen musst. */
       goldPreisCent: 0,
       silberPreisCent: 0,
+      btcPreisCent: 0,          // Euro-Cent je ganzem Bitcoin
       /* Die eingetragenen Vermögenswerte des Zakat-Rechners. Sie bleiben
          erhalten, damit du beim nächsten Mal nur noch anpassen musst,
          was sich geändert hat. */
       zakat: {
         schule: "hanafi", grundlage: "silber",
-        bargeld: 0, guthaben: 0, goldGramm: 0, silberGramm: 0,
-        handelsware: 0, anlagen: 0, forderungen: 0, schulden: 0,
+        /* Die Vermögensposten als frei erweiterbare Liste. Jeder Eintrag:
+           { id, name, art, wert }
+           art "geld"   → wert ist ein Betrag in Cent
+           art "schuld" → wert ist ein Betrag in Cent, wird abgezogen
+           art "gold"   → wert ist Gramm
+           art "silber" → wert ist Gramm
+           art "btc"    → wert ist die Menge Bitcoin */
+        posten: [],
         stand: null,
         /* Dein persönlicher Zakat-Stichtag (ISO-Datum). Das islamische Jahr
            ist rund elf Tage kürzer als das Sonnenjahr — der Stichtag wandert
@@ -1808,6 +1858,7 @@ function zustandSaeubern(roh){
   z.einstellungen.wochenstunden = Number.isFinite(+e.wochenstunden) ? klemmen(+e.wochenstunden,0,168) : 0;
   z.einstellungen.notgroschenZiel = Number.isFinite(+e.notgroschenZiel) ? Math.max(0, Math.round(+e.notgroschenZiel)) : 0;
   z.einstellungen.hochrechnungJahre = Number.isFinite(+e.hochrechnungJahre) ? klemmen(Math.round(+e.hochrechnungJahre),1,40) : 10;
+  z.einstellungen.einfacheAnsicht = e.einfacheAnsicht === true;
   z.einstellungen.inflation = Number.isFinite(+e.inflation) ? klemmen(+e.inflation,0,20) : 2;
   /* Die Vermögenswerte des Zakat-Rechners zurückholen. */
   const zk = e.zakat && typeof e.zakat === "object" ? e.zakat : {};
@@ -1815,16 +1866,45 @@ function zustandSaeubern(roh){
     schule: ["hanafi","schafii"].includes(zk.schule) ? zk.schule : "hanafi",
     grundlage: ["silber","gold"].includes(zk.grundlage) ? zk.grundlage : "silber",
     stand: typeof zk.stand === "string" ? zk.stand : null,
-    stichtag: typeof zk.stichtag === "string" ? zk.stichtag : null
+    stichtag: typeof zk.stichtag === "string" ? zk.stichtag : null,
+    posten: []
   };
-  ["bargeld","guthaben","handelsware","anlagen","forderungen","schulden"].forEach(s => {
-    z.einstellungen.zakat[s] = Number.isFinite(+zk[s]) ? Math.max(0, Math.round(+zk[s])) : 0;
-  });
-  ["goldGramm","silberGramm"].forEach(s => {
-    z.einstellungen.zakat[s] = Number.isFinite(+zk[s]) ? Math.max(0, +zk[s]) : 0;
-  });
+
+  if(Array.isArray(zk.posten)){
+    z.einstellungen.zakat.posten = zk.posten.map(p => {
+      if(!p || typeof p !== "object") return null;
+      const art = ZAKAT_ARTEN[p.art] ? p.art : "geld";
+      const roh = Number(p.wert);
+      if(!Number.isFinite(roh) || roh < 0) return null;
+      return {
+        id: typeof p.id === "string" && p.id ? p.id : idNeu("zp"),
+        name: (typeof p.name === "string" ? p.name.trim() : "").slice(0,50) || ZAKAT_ARTEN[art].name,
+        art,
+        /* Geldbeträge als ganze Cent, Mengen mit Nachkommastellen. */
+        wert: ZAKAT_ARTEN[art].geld ? Math.round(roh) : roh
+      };
+    }).filter(Boolean);
+  } else {
+    /* Aus der früheren Fassung mit festen Feldern übernehmen. */
+    const alt = [
+      ["bargeld","Bargeld","geld"], ["guthaben","Guthaben auf Konten","geld"],
+      ["handelsware","Handelsware","geld"], ["anlagen","Aktien, Fonds und Anlagen","geld"],
+      ["forderungen","Geliehenes Geld","geld"], ["schulden","Fällige Schulden","schuld"],
+      ["goldGramm","Gold","gold"], ["silberGramm","Silber","silber"]
+    ];
+    alt.forEach(([schluessel,name,art]) => {
+      const w = Number(zk[schluessel]);
+      if(Number.isFinite(w) && w > 0){
+        z.einstellungen.zakat.posten.push({
+          id: idNeu("zp"), name, art,
+          wert: ZAKAT_ARTEN[art].geld ? Math.round(w) : w
+        });
+      }
+    });
+  }
 
   z.einstellungen.goldPreisCent = Number.isFinite(+e.goldPreisCent) ? Math.max(0, Math.round(+e.goldPreisCent)) : 0;
+  z.einstellungen.btcPreisCent = Number.isFinite(+e.btcPreisCent) ? Math.max(0, Math.round(+e.btcPreisCent)) : 0;
   z.einstellungen.silberPreisCent = Number.isFinite(+e.silberPreisCent) ? Math.max(0, Math.round(+e.silberPreisCent)) : 0;
   z.einstellungen.preiseStand = typeof e.preiseStand === "string" ? e.preiseStand : null;
   z.einstellungen.preiseAusNetz = e.preiseAusNetz === true;
@@ -2670,7 +2750,7 @@ function bestaetigen({ titel, text, knopfText = "Bestätigen", gefahr = false, e
 
 const ANSICHT_TITEL = {
   uebersicht:"Übersicht", einnahmen:"Einnahmen", ausgaben:"Ausgaben",
-  auswertung:"Auswertung", einstellungen:"Einstellungen"
+  auswertung:"Auswertung", werkzeuge:"Werkzeuge", einstellungen:"Einstellungen"
 };
 
 function navigieren(ziel){
@@ -2848,6 +2928,29 @@ function zeichneUebersicht(){
   const wurzel = $("#v-uebersicht");
   wurzel.replaceChildren();
   const p = P();
+
+  /* Umschalter zwischen Dashboard und der schlichten Tabellenansicht.
+     Die Wahl bleibt gespeichert, damit die App so startet, wie du sie
+     zuletzt gesehen hast. */
+  if(p.einnahmen.length > 0 || p.ausgaben.length > 0){
+    wurzel.appendChild(el("div",{ class:"segment", style:"margin-bottom:16px", role:"group",
+      "aria-label":"Darstellung der Übersicht" },
+      el("button",{ type:"button", "aria-pressed": S.einstellungen.einfacheAnsicht ? "false":"true",
+        text:"Übersicht", onclick:() => {
+          S.einstellungen.einfacheAnsicht = false; aendern();
+        }}),
+      el("button",{ type:"button", "aria-pressed": S.einstellungen.einfacheAnsicht ? "true":"false",
+        text:"Einfache Ansicht", onclick:() => {
+          S.einstellungen.einfacheAnsicht = true; aendern();
+        }})
+    ));
+
+    if(S.einstellungen.einfacheAnsicht){
+      /* Die Tabellenansicht — dieselbe wie im Monatsblatt. */
+      reiterMonatsblatt(wurzel);
+      return;
+    }
+  }
 
   if(p.einnahmen.length === 0 && p.ausgaben.length === 0){
     wurzel.appendChild(leerZustand(
@@ -3880,8 +3983,7 @@ const AUSWERTUNG_REITER = [
   { id:"start",     name:"Monatsblatt", icon:"ic-ausgaben" },
   { id:"ausgaben",  name:"Ausgaben",    icon:"ic-auswertung" },
   { id:"sparen",    name:"Sparen",      icon:"ic-sparen" },
-  { id:"analyse",   name:"Analyse",     icon:"ic-wachstum" },
-  { id:"werkzeuge", name:"Rechner",     icon:"ic-ziel" }
+  { id:"analyse",   name:"Analyse",     icon:"ic-wachstum" }
 ];
 
 /* Die Rechner im gleichnamigen Reiter. Sie stehen nicht untereinander,
@@ -3927,7 +4029,6 @@ function zeichneAuswertung(){
     case "sparen":    reiterSparen(box); break;
     case "analyse":   reiterAnalyse(box); break;
     case "ausgaben":  reiterAusgaben(box); break;
-    case "werkzeuge": reiterWerkzeuge(box); break;
     default:          reiterMonatsblatt(box);
   }
 }
@@ -4630,16 +4731,18 @@ function sparVerlaufZeichnen(reihe, mitKaufkraft){
    Zwei eigenständige Rechner, die nichts an den gespeicherten
    Daten ändern. Beide arbeiten nur mit dem, was du eintippst.
    ================================================================ */
-function reiterWerkzeuge(wurzel){
+function zeichneWerkzeuge(){
+  const wurzel = $("#v-werkzeuge");
+  wurzel.replaceChildren();
   /* Ist ein Rechner geöffnet, zeigen wir nur ihn — mit Weg zurück. */
   if(UI.rechnerOffen){
     const eintrag = RECHNER.find(r => r.id === UI.rechnerOffen);
     wurzel.appendChild(el("button",{ class:"knopf rahmen", type:"button", style:"margin-bottom:14px",
-      onclick:() => { UI.rechnerOffen = null; zeichneAuswertung(); } },
-      icon("ic-links"), "Alle Rechner"));
+      onclick:() => { UI.rechnerOffen = null; zeichneWerkzeuge(); } },
+      icon("ic-links"), "Alle Werkzeuge"));
     if(UI.rechnerOffen === "zakat") wurzel.appendChild(zakatRechner());
     else if(UI.rechnerOffen === "vermoegen") wurzel.appendChild(vermoegensRechner());
-    else { UI.rechnerOffen = null; reiterWerkzeuge(wurzel); }
+    else { UI.rechnerOffen = null; zeichneWerkzeuge(); }
     return;
   }
 
@@ -4651,7 +4754,7 @@ function reiterWerkzeuge(wurzel){
   RECHNER.forEach(r => {
     wurzel.appendChild(el("button",{ class:"karte", type:"button",
       style:"display:flex;align-items:center;gap:14px;width:100%;text-align:left;min-height:80px",
-      onclick:() => { UI.rechnerOffen = r.id; zeichneAuswertung(); } },
+      onclick:() => { UI.rechnerOffen = r.id; zeichneWerkzeuge(); } },
       el("span",{ style:"width:46px;height:46px;border-radius:13px;flex:none;display:flex;align-items:center;justify-content:center;background:var(--akzent-weich);color:var(--akzent)" },
         icon(r.icon, 24)),
       el("span",{ style:"flex:1;min-width:0" },
@@ -4810,6 +4913,65 @@ function vermoegensRechner(){
    damit die App offline und ohne jede Datenübertragung bleibt.
    ---------------------------------------------------------------- */
 
+/* ----------------------------------------------------------------
+   ZAKAT-VERMÖGEN
+   Die Posten liegen in den Einstellungen und werden hier bewertet.
+   ---------------------------------------------------------------- */
+
+/** Die Liste der Vermögensposten — immer ein Array. */
+function zakatPosten(){
+  const z = S.einstellungen.zakat;
+  if(!z.posten || !Array.isArray(z.posten)) z.posten = [];
+  return z.posten;
+}
+
+/** Der Eurowert eines Postens in Cent. Braucht die Tagespreise. */
+function zakatPostenWert(posten){
+  const e = S.einstellungen;
+  switch(posten.art){
+    case "geld":
+    case "schuld":  return Math.round(posten.wert);
+    case "gold":    return Math.round(posten.wert * (e.goldPreisCent || 0));
+    case "silber":  return Math.round(posten.wert * (e.silberPreisCent || 0));
+    case "btc":     return Math.round(posten.wert * (e.btcPreisCent || 0));
+    default:        return 0;
+  }
+}
+
+/** Fehlt für einen Posten der nötige Tagespreis? */
+function zakatPreisFehlt(posten){
+  const e = S.einstellungen;
+  if(posten.wert <= 0) return false;
+  if(posten.art === "gold")   return !(e.goldPreisCent > 0);
+  if(posten.art === "silber") return !(e.silberPreisCent > 0);
+  if(posten.art === "btc")    return !(e.btcPreisCent > 0);
+  return false;
+}
+
+/**
+ * Wertet alle Posten aus und liefert die Summen.
+ * Schulden werden nur nach hanafitischer Lehre abgezogen.
+ */
+function zakatVermoegen(){
+  const posten = zakatPosten();
+  const schule = S.einstellungen.zakat.schule || "hanafi";
+  let besitz = 0, schulden = 0, goldGramm = 0, silberGramm = 0;
+  const fehlendePreise = new Set();
+
+  posten.forEach(p => {
+    if(zakatPreisFehlt(p)) fehlendePreise.add(p.art);
+    const wert = zakatPostenWert(p);
+    if(p.art === "schuld") schulden += wert;
+    else besitz += wert;
+    if(p.art === "gold") goldGramm += p.wert;
+    if(p.art === "silber") silberGramm += p.wert;
+  });
+
+  const netto = schule === "hanafi" ? Math.max(0, besitz - schulden) : besitz;
+  return { besitz, schulden, netto, goldGramm, silberGramm,
+           fehlendePreise: Array.from(fehlendePreise) };
+}
+
 /* Die klassischen Maße: 20 Golddinar und 200 Silberdirham. */
 const NISAB_GOLD_GRAMM = 85;
 const NISAB_SILBER_GRAMM = 595;
@@ -4886,11 +5048,40 @@ async function edelmetallpreiseHolen(){
     throw new Error("Der Wechselkurs ist gerade nicht erreichbar.");
   }
 
+  /* Bitcoin gibt es direkt in Euro — ein Fehlschlag hier soll die
+     Edelmetallpreise nicht mitreißen. */
+  let btcCent = 0;
+  try{
+    btcCent = await btcKursHolen(kurs);
+  }catch(fehler){ /* ohne Bitcoin weitermachen */ }
+
   return {
     goldCent:   Math.round(goldUsdUnze   * kurs / FEINUNZE_GRAMM * 100),
     silberCent: Math.round(silberUsdUnze * kurs / FEINUNZE_GRAMM * 100),
+    btcCent,
     stand: new Date().toISOString()
   };
+}
+
+/** Der Bitcoin-Kurs in Euro-Cent, aus mehreren Quellen mit Rückfall. */
+async function btcKursHolen(usdEurKurs){
+  const quellen = [
+    /* Coinbase liefert direkt Euro. */
+    async () => Number((await holen("https://api.coinbase.com/v2/prices/BTC-EUR/spot"))?.data?.amount),
+    async () => Number((await holen("https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=eur"))?.bitcoin?.eur),
+    /* Notfalls über den Dollarkurs. */
+    async () => {
+      const p = Number((await holen("https://api.gold-api.com/price/BTC"))?.price);
+      return Number.isFinite(p) && usdEurKurs ? p * usdEurKurs : NaN;
+    }
+  ];
+  for(const quelle of quellen){
+    try{
+      const kurs = await quelle();
+      if(Number.isFinite(kurs) && kurs > 0) return Math.round(kurs * 100);
+    }catch(fehler){ /* nächste Quelle */ }
+  }
+  throw new Error("Kein Bitcoin-Kurs erreichbar");
 }
 
 function zakatRechner(){
@@ -4914,16 +5105,12 @@ function zakatRechner(){
   };
 
   /** Merkt sich alle Eingaben, damit sie beim nächsten Mal wieder da sind. */
+  /* Merkt Rechtsschule und Grundlage. Die Postenliste bleibt unangetastet —
+     sie wird über den Posten-Dialog gepflegt. */
   const merken = () => {
-    S.einstellungen.zakat = {
-      schule: Z.schule, grundlage: Z.grundlage,
-      bargeld: Z.bargeld, guthaben: Z.guthaben,
-      goldGramm: Z.goldGramm, silberGramm: Z.silberGramm,
-      handelsware: Z.handelsware, anlagen: Z.anlagen,
-      forderungen: Z.forderungen, schulden: Z.schulden,
-      stand: new Date().toISOString(),
-      stichtag: S.einstellungen.zakat?.stichtag || null
-    };
+    S.einstellungen.zakat.schule = Z.schule;
+    S.einstellungen.zakat.grundlage = Z.grundlage;
+    S.einstellungen.zakat.stand = new Date().toISOString();
     speichern();
   };
 
@@ -4982,6 +5169,9 @@ function zakatRechner(){
   const silberFeld = betragsFeld(S.einstellungen.silberPreisCent || 0, "Silberpreis je Gramm");
   silberFeld.feld.removeAttribute("data-autofokus");
   silberFeld.feld.placeholder = "Tagespreis";
+  const btcFeld = betragsFeld(S.einstellungen.btcPreisCent || 0, "Bitcoin-Kurs je BTC");
+  btcFeld.feld.removeAttribute("data-autofokus");
+  btcFeld.feld.placeholder = "Tagespreis";
 
   const standZeile = el("p",{ class:"t-klein", style:"line-height:1.55" });
   const standAktualisieren = () => {
@@ -5026,12 +5216,17 @@ function zakatRechner(){
       silberFeld.feld.value = zahlFuerFeld(preise.silberCent);
       S.einstellungen.goldPreisCent = preise.goldCent;
       S.einstellungen.silberPreisCent = preise.silberCent;
+      if(preise.btcCent > 0){
+        btcFeld.feld.value = zahlFuerFeld(preise.btcCent);
+        S.einstellungen.btcPreisCent = preise.btcCent;
+      }
       S.einstellungen.preiseStand = preise.stand;
       S.einstellungen.preiseAusNetz = true;
       speichern();
       standAktualisieren();
       rechnen();
-      toast(`Gold ${euro(preise.goldCent)} · Silber ${euro(preise.silberCent)} je Gramm.`);
+      toast(`Gold ${euro(preise.goldCent)} · Silber ${euro(preise.silberCent)} je Gramm`
+          + (preise.btcCent > 0 ? ` · Bitcoin ${euro(preise.btcCent)}` : " · Bitcoin nicht erreichbar"), null, 7000);
     }catch(fehler){
       toast(String(fehler.message || fehler) + " Trag die Preise so lange von Hand ein.", null, 9000);
     }finally{
@@ -5044,6 +5239,7 @@ function zakatRechner(){
     el("div",{ class:"t-kapitaelchen", style:"margin-bottom:12px", text:"Tagespreise" }),
     goldFeld.box,
     silberFeld.box,
+    btcFeld.box,
     holKnopf,
     el("div",{ style:"margin-top:12px" }, standZeile),
     el("p",{ class:"t-klein", style:"line-height:1.55;margin-top:8px",
@@ -5051,46 +5247,76 @@ function zakatRechner(){
          + "Du kannst die Preise genauso gut selbst nachschlagen und eintippen. Für die Schwelle zählt nur der Preis der gewählten Grundlage." })
   ));
 
-  /* --- Vermögenswerte --- */
-  const felder = {};
-  const wertFeld = (schluessel, beschriftung, hinweis) => {
-    const f = betragsFeld(gespeichert[schluessel] || 0, beschriftung);
-    f.feld.removeAttribute("data-autofokus");
-    /* Der Rechenhinweis von betragsFeld wird hier durch die Sacherklärung
-       ersetzt — zwei Zeilen unter jedem der acht Felder wären zu unruhig. */
-    if(hinweis){
-      const vorhanden = f.box.querySelector(".feld-hinweis");
-      if(vorhanden) vorhanden.remove();
-      f.box.appendChild(el("div",{ class:"feld-hinweis", text:hinweis }));
-    }
-    felder[schluessel] = f;
-    return f.box;
-  };
-  const grammFeld = (schluessel, beschriftung, hinweis) => {
-    const inp = el("input",{ class:"eingabe", type:"number", min:"0", step:"0.1",
-      inputmode:"decimal", placeholder:"0",
-      value: gespeichert[schluessel] ? String(gespeichert[schluessel]).replace(".",",") : "" });
-    inp.addEventListener("input", rechnen);
-    felder[schluessel] = { feld:inp, wert: () => parseFloat(String(inp.value).replace(",",".")) || 0 };
-    return el("div",{ class:"feld" },
-      el("div",{ class:"feld-label", text:beschriftung }), inp,
-      hinweis ? el("div",{ class:"feld-hinweis", text:hinweis }) : null);
-  };
+  /* --- Vermögensposten --- */
+  const postenBox = el("div",{});
+  karte.appendChild(el("div",{ style:"display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin:4px 0 12px" },
+    el("span",{ class:"t-kapitaelchen", text:"Dein Vermögen am Stichtag" }),
+    el("button",{ class:"knopf leise klein", type:"button",
+      onclick:() => zakatPostenDialog(null, () => { postenZeichnen(); rechnen(); }) },
+      icon("ic-plus"), "Posten")
+  ));
+  karte.appendChild(postenBox);
 
-  karte.appendChild(el("div",{ class:"t-kapitaelchen", style:"margin:4px 0 14px", text:"Dein Vermögen am Stichtag" }));
-  karte.appendChild(wertFeld("bargeld", "Bargeld"));
-  karte.appendChild(wertFeld("guthaben", "Guthaben auf Konten"));
-  karte.appendChild(grammFeld("goldGramm", "Gold in Gramm", "Barren, Münzen und Schmuck."));
-  karte.appendChild(grammFeld("silberGramm", "Silber in Gramm"));
-  karte.appendChild(wertFeld("handelsware", "Handelsware",
-    "Waren, die du zum Weiterverkauf hältst — zum heutigen Verkaufswert."));
-  karte.appendChild(wertFeld("anlagen", "Aktien, Fonds und Anlagen",
-    "Wie viel davon zakatpflichtig ist, wird unterschiedlich beurteilt — der volle Depotwert ist der "
-    + "vorsichtige Ansatz. Lies dazu „Sparen für ein Eigenheim, Aktien und Fonds“ weiter unten."));
-  karte.appendChild(wertFeld("forderungen", "Geliehenes Geld",
-    "Nur, womit du sicher rechnest, es zurückzubekommen."));
-  karte.appendChild(wertFeld("schulden", "Fällige Schulden",
-    "Wird bei der hanafitischen Rechnung abgezogen."));
+  function postenZeichnen(){
+    postenBox.replaceChildren();
+    const liste = zakatPosten();
+
+    if(liste.length === 0){
+      postenBox.appendChild(el("div",{ class:"leer", style:"padding:24px 12px" },
+        (() => { const s = icon("ic-leer-liste"); s.classList.add("bild"); return s; })(),
+        el("h3",{ text:"Noch nichts eingetragen" }),
+        el("p",{ text:"Trag ein, was du besitzt: Konten, Gold, Silber, Bitcoin. Du kannst so viele Posten anlegen, wie du brauchst." }),
+        el("button",{ class:"knopf primaer", type:"button",
+          onclick:() => zakatVorlagenAnlegen(() => { postenZeichnen(); rechnen(); }) },
+          icon("ic-plus"), "Übliche Posten anlegen")
+      ));
+      return;
+    }
+
+    liste.forEach(p => {
+      const art = ZAKAT_ARTEN[p.art];
+      const wert = zakatPostenWert(p);
+      const preisFehlt = zakatPreisFehlt(p);
+      postenBox.appendChild(el("div",{ class:"zeile-huelle" },
+        el("button",{ class:"zeile", type:"button",
+          onclick:() => zakatPostenDialog(p, () => { postenZeichnen(); rechnen(); }) },
+          el("span",{ style:`width:34px;height:34px;border-radius:9px;flex:none;display:flex;align-items:center;justify-content:center;`
+            + `background:${p.art==="schuld"?"var(--rot-weich)":"var(--karte-2)"};color:${p.art==="schuld"?"var(--rot)":"var(--text-2)"}` },
+            icon(art.icon, 17)),
+          el("div",{ class:"zeile-haupt" },
+            el("div",{ class:"zeile-name", text:p.name }),
+            el("div",{ class:"zeile-unter",
+              text: art.geld ? art.name
+                  : `${nfZahl.format(p.wert).replace(",00","")} ${art.einheit}`
+                    + (preisFehlt ? " · Preis fehlt" : "") })
+          ),
+          el("div",{ class:"zeile-rechts" },
+            el("div",{ class:"zeile-betrag", style: p.art==="schuld" ? "color:var(--rot)" : null,
+              text: preisFehlt ? "—" : (p.art==="schuld" ? "− " : "") + euro(wert) })
+          ),
+          el("span",{ class:"zeile-pfeil" }, icon("ic-rechts"))
+        )
+      ));
+    });
+
+    /* Summenzeile */
+    const v = zakatVermoegen();
+    postenBox.appendChild(el("div",{ style:"padding:14px 16px;margin-top:8px;border-radius:12px;background:var(--karte-2)" },
+      el("div",{ style:"display:flex;justify-content:space-between;gap:12px;align-items:baseline" },
+        el("span",{ class:"t-label", text:"Besitz" }),
+        el("span",{ style:"font-variant-numeric:tabular-nums;font-weight:600", text:euro(v.besitz) })
+      ),
+      v.schulden > 0 ? el("div",{ style:"display:flex;justify-content:space-between;gap:12px;align-items:baseline;margin-top:6px" },
+        el("span",{ class:"t-label", text: Z.schule === "hanafi" ? "Schulden abgezogen" : "Schulden (nicht abgezogen)" }),
+        el("span",{ style:`font-variant-numeric:tabular-nums;font-weight:600;color:${Z.schule==="hanafi"?"var(--rot)":"var(--text-3)"}`,
+          text:(Z.schule==="hanafi"?"− ":"")+euro(v.schulden) })
+      ) : null,
+      el("div",{ style:"display:flex;justify-content:space-between;gap:12px;align-items:baseline;margin-top:10px;padding-top:10px;border-top:1px solid var(--linie)" },
+        el("span",{ class:"t-label", style:"font-weight:650", text:"Zakatpflichtig" }),
+        el("span",{ style:"font-size:17px;font-weight:650;font-variant-numeric:tabular-nums", text:euro(v.netto) })
+      )
+    ));
+  }
 
   const ergebnis = el("div",{});
   karte.appendChild(ergebnis);
@@ -5102,35 +5328,29 @@ function zakatRechner(){
     /* Selbst eingetippte Preise merken, damit sie beim nächsten Öffnen
        wieder da sind. Ein von Hand geänderter Wert gilt nicht mehr als
        abgerufen — sonst stimmt die Herkunftsangabe nicht. */
-    if(Z.goldPreis !== (S.einstellungen.goldPreisCent||0) || Z.silberPreis !== (S.einstellungen.silberPreisCent||0)){
+    Z.btcPreis = btcFeld.wert() ?? 0;
+    if(Z.goldPreis !== (S.einstellungen.goldPreisCent||0)
+       || Z.silberPreis !== (S.einstellungen.silberPreisCent||0)
+       || Z.btcPreis !== (S.einstellungen.btcPreisCent||0)){
       S.einstellungen.goldPreisCent = Z.goldPreis;
       S.einstellungen.silberPreisCent = Z.silberPreis;
-      if(Z.goldPreis > 0 || Z.silberPreis > 0){
+      S.einstellungen.btcPreisCent = Z.btcPreis;
+      if(Z.goldPreis > 0 || Z.silberPreis > 0 || Z.btcPreis > 0){
         S.einstellungen.preiseStand = new Date().toISOString();
         S.einstellungen.preiseAusNetz = false;
       }
       speichern();
       standAktualisieren();
     }
-    ["bargeld","guthaben","handelsware","anlagen","forderungen","schulden"].forEach(s => {
-      Z[s] = felder[s].wert() ?? 0;
-    });
-    Z.goldGramm = felder.goldGramm.wert();
-    Z.silberGramm = felder.silberGramm.wert();
-
-    const goldWert = Math.round(Z.goldGramm * Z.goldPreis);
-    const silberWert = Math.round(Z.silberGramm * Z.silberPreis);
-    const bar = Z.bargeld + Z.guthaben + Z.handelsware + Z.anlagen + Z.forderungen;
+    /* Alle Posten bewerten. */
+    const v = zakatVermoegen();
+    const netto = v.netto;
 
     /* Die Schwelle in Euro — abhängig von der gewählten Grundlage. */
     const nisab = Z.grundlage === "silber"
       ? Math.round(NISAB_SILBER_GRAMM * Z.silberPreis)
       : Math.round(NISAB_GOLD_GRAMM * Z.goldPreis);
     const preisFehlt = Z.grundlage === "silber" ? Z.silberPreis <= 0 : Z.goldPreis <= 0;
-
-    /* Hanafi: alles zusammen, Schulden ab. Schafi'i: ohne Schuldenabzug. */
-    const brutto = bar + goldWert + silberWert;
-    const netto = Z.schule === "hanafi" ? Math.max(0, brutto - Z.schulden) : brutto;
     const pflichtig = !preisFehlt && netto >= nisab && nisab > 0;
     const betrag = pflichtig ? Math.round(netto * ZAKAT_SATZ) : 0;
     /* Was man monatlich zurücklegen müsste, um den Betrag im Jahr beisammen
@@ -5180,13 +5400,26 @@ function zakatRechner(){
         el("span",{ class:"dz-wert", style: farbe ? `color:${farbe}` : null, text:wert })
       );
       const box = el("div",{ style:"margin-top:16px" });
-      if(bar > 0) box.appendChild(zeile("Geld und Anlagen", "Bargeld, Konten, Ware, Beteiligungen, Forderungen", euro(bar)));
-      if(goldWert > 0) box.appendChild(zeile("Gold", `${nfZahl.format(Z.goldGramm).replace(",00","")} g`, euro(goldWert)));
-      if(silberWert > 0) box.appendChild(zeile("Silber", `${nfZahl.format(Z.silberGramm).replace(",00","")} g`, euro(silberWert)));
-      if(Z.schulden > 0){
+      /* Nach Art zusammengefasst, damit die Zeilen nicht ausufern. */
+      const nachArt = {};
+      zakatPosten().forEach(p => {
+        if(!nachArt[p.art]) nachArt[p.art] = { wert:0, menge:0, anzahl:0 };
+        nachArt[p.art].wert += zakatPostenWert(p);
+        nachArt[p.art].menge += p.wert;
+        nachArt[p.art].anzahl++;
+      });
+      if(nachArt.geld) box.appendChild(zeile("Geld und Anlagen",
+        `${nachArt.geld.anzahl} ${plural(nachArt.geld.anzahl,"Posten","Posten")}`, euro(nachArt.geld.wert)));
+      if(nachArt.gold) box.appendChild(zeile("Gold",
+        `${nfZahl.format(nachArt.gold.menge).replace(",00","")} g`, euro(nachArt.gold.wert)));
+      if(nachArt.silber) box.appendChild(zeile("Silber",
+        `${nfZahl.format(nachArt.silber.menge).replace(",00","")} g`, euro(nachArt.silber.wert)));
+      if(nachArt.btc) box.appendChild(zeile("Bitcoin",
+        `${nfBtc.format(nachArt.btc.menge)} BTC`, euro(nachArt.btc.wert)));
+      if(nachArt.schuld){
         box.appendChild(Z.schule === "hanafi"
-          ? zeile("Fällige Schulden", "werden abgezogen", "− "+euro(Z.schulden), "var(--rot)")
-          : zeile("Fällige Schulden", "nach schafiitischer Lehre nicht abgezogen", euro(Z.schulden), "var(--text-3)"));
+          ? zeile("Fällige Schulden", "werden abgezogen", "− "+euro(nachArt.schuld.wert), "var(--rot)")
+          : zeile("Fällige Schulden", "nach schafiitischer Lehre nicht abgezogen", euro(nachArt.schuld.wert), "var(--text-2)"));
       }
       box.appendChild(zeile("Zakatpflichtiges Vermögen", null, euro(netto)));
       box.appendChild(zeile("Schwelle (Nisab)",
@@ -5195,30 +5428,150 @@ function zakatRechner(){
       kinder.push(box);
 
       /* Bei Schafi'i getrennte Betrachtung sichtbar machen */
-      if(Z.schule === "schafii" && goldWert > 0 && silberWert > 0){
+      if(Z.schule === "schafii" && nachArt.gold?.wert > 0 && nachArt.silber?.wert > 0){
         const nisabGold = Math.round(NISAB_GOLD_GRAMM * Z.goldPreis);
         const nisabSilber = Math.round(NISAB_SILBER_GRAMM * Z.silberPreis);
         kinder.push(el("div",{ class:"banner", style:"margin-top:16px" },
           icon("ic-info"),
           el("div",{ class:"inhalt-b", style:"line-height:1.55",
             html: `In der schafiitischen Lehre werden Gold und Silber <strong>getrennt</strong> bewertet, jedes mit eigener Schwelle: `
-              + `Gold ${euro(goldWert)} gegen ${euro(nisabGold)}, Silber ${euro(silberWert)} gegen ${euro(nisabSilber)}. `
+              + `Gold ${euro(nachArt.gold.wert)} gegen ${euro(nisabGold)}, Silber ${euro(nachArt.silber.wert)} gegen ${euro(nisabSilber)}. `
               + `Die Rechnung oben fasst zusammen — prüfe die beiden Posten deshalb auch einzeln.` })
         ));
       }
     }
 
+    /* Fehlende Tagespreise für Posten, die welche brauchen. */
+    if(v.fehlendePreise.length > 0){
+      kinder.push(el("div",{ class:"banner warn", style:"margin-top:14px" },
+        icon("ic-warn"),
+        el("div",{ class:"inhalt-b",
+          text:`Für ${v.fehlendePreise.map(a => ZAKAT_ARTEN[a].name).join(" und ")} fehlt der Tagespreis. `
+             + "Diese Posten werden noch nicht mitgerechnet." })
+      ));
+    }
+
+    postenZeichnen();
     ergebnis.replaceChildren(...kinder, zakatErklaerung());
   }
 
-  [goldFeld.feld, silberFeld.feld].forEach(f => f.addEventListener("input", rechnen));
-  ["bargeld","guthaben","handelsware","anlagen","forderungen","schulden"].forEach(s => {
-    felder[s].feld.addEventListener("input", rechnen);
-  });
+  [goldFeld.feld, silberFeld.feld, btcFeld.feld].forEach(f => f.addEventListener("input", rechnen));
 
   grundlageAktualisieren();
   rechnen();
   return karte;
+}
+
+/** Legt die üblichen Posten auf einen Schlag an — leer, zum Ausfüllen. */
+function zakatVorlagenAnlegen(dann){
+  const liste = zakatPosten();
+  ZAKAT_POSTEN_VORLAGEN.forEach(v => {
+    if(liste.some(p => p.name.toLowerCase() === v.name.toLowerCase())) return;
+    liste.push({ id:idNeu("zp"), name:v.name, art:v.art, wert:0 });
+  });
+  speichern();
+  if(dann) dann();
+  toast(`${ZAKAT_POSTEN_VORLAGEN.length} Posten angelegt. Trag jetzt die Werte ein.`);
+}
+
+/** Einen Vermögensposten anlegen oder bearbeiten. */
+function zakatPostenDialog(vorhanden, dann){
+  const neu = !vorhanden;
+  const daten = vorhanden
+    ? { ...vorhanden }
+    : { id:idNeu("zp"), name:"", art:"geld", wert:0 };
+
+  const koerper = el("div",{});
+  const nameFeld = el("input",{ class:"eingabe", type:"text", maxlength:"50",
+    placeholder:"z. B. Tagesgeld bei der Sparkasse", value:daten.name, "data-autofokus":"" });
+  koerper.appendChild(el("div",{ class:"feld" },
+    el("div",{ class:"feld-label", text:"Bezeichnung" }), nameFeld));
+
+  /* Art wählen */
+  const artBox = el("div",{ class:"chip-reihe" });
+  const wertBox = el("div",{});
+  const artZeichnen = () => {
+    artBox.replaceChildren();
+    Object.entries(ZAKAT_ARTEN).forEach(([schluessel, art]) => {
+      artBox.appendChild(el("button",{ class:"chip wahl", type:"button",
+        "aria-pressed": daten.art === schluessel ? "true":"false",
+        onclick:() => { daten.art = schluessel; artZeichnen(); wertZeichnen(); }},
+        icon(art.icon, 13), el("span",{ text:art.name })));
+    });
+  };
+  artZeichnen();
+  koerper.appendChild(el("div",{ class:"feld" },
+    el("div",{ class:"feld-label", text:"Art" }), artBox,
+    el("div",{ class:"feld-hinweis", id:"zp-art-hinweis", text:ZAKAT_ARTEN[daten.art].hinweis })));
+
+  /* Wertfeld — je nach Art ein Betrag oder eine Menge */
+  let holeWert = () => 0;
+  function wertZeichnen(){
+    const art = ZAKAT_ARTEN[daten.art];
+    const hinweis = $("#zp-art-hinweis", koerper);
+    if(hinweis) hinweis.textContent = art.hinweis;
+    wertBox.replaceChildren();
+
+    if(art.geld){
+      const f = betragsFeld(daten.wert || 0, art.name === "Schuld" ? "Betrag der Schuld" : "Betrag");
+      f.feld.removeAttribute("data-autofokus");
+      wertBox.appendChild(f.box);
+      holeWert = () => Math.max(0, f.wert() ?? 0);
+    } else {
+      const schritt = daten.art === "btc" ? "0.00000001" : "0.1";
+      const inp = el("input",{ class:"eingabe", type:"number", min:"0", step:schritt,
+        inputmode:"decimal", placeholder:"0",
+        value: daten.wert ? String(daten.wert).replace(".",",") : "" });
+      const vorschau = el("div",{ class:"feld-hinweis" });
+      const aktualisieren = () => {
+        const menge = parseFloat(String(inp.value).replace(",",".")) || 0;
+        const preis = daten.art === "gold" ? S.einstellungen.goldPreisCent
+                    : daten.art === "silber" ? S.einstellungen.silberPreisCent
+                    : S.einstellungen.btcPreisCent;
+        vorschau.textContent = !preis
+          ? `Trag im Rechner den Tagespreis für ${art.name} ein, dann wird hier der Wert angezeigt.`
+          : `Entspricht ${euro(Math.round(menge * preis))} beim aktuell hinterlegten Preis.`;
+      };
+      inp.addEventListener("input", aktualisieren);
+      aktualisieren();
+      wertBox.appendChild(el("div",{ class:"feld" },
+        el("div",{ class:"feld-label", text:`Menge in ${art.einheit}` }), inp, vorschau));
+      holeWert = () => Math.max(0, parseFloat(String(inp.value).replace(",",".")) || 0);
+    }
+  }
+  wertZeichnen();
+  koerper.appendChild(wertBox);
+
+  const speichernFn = () => {
+    const name = nameFeld.value.trim().slice(0,50) || ZAKAT_ARTEN[daten.art].name;
+    daten.name = name;
+    daten.wert = holeWert();
+    const liste = zakatPosten();
+    const i = liste.findIndex(p => p.id === daten.id);
+    if(i >= 0) liste[i] = daten; else liste.push(daten);
+    speichern();
+    dialogSchliessen(2);
+    if(dann) dann();
+    if(aktiveAnsicht === "einstellungen") zeichnen();
+  };
+  koerper.addEventListener("keydown", (e) => { if(e.key === "Enter"){ e.preventDefault(); speichernFn(); } });
+
+  const fuss = el("div",{ style:"display:flex;gap:8px;width:100%" },
+    vorhanden ? el("button",{ class:"knopf gefahr", type:"button", "aria-label":"Posten löschen",
+      onclick:() => {
+        const liste = zakatPosten();
+        const i = liste.findIndex(p => p.id === daten.id);
+        if(i >= 0) liste.splice(i,1);
+        speichern();
+        dialogSchliessen(2);
+        if(dann) dann();
+        if(aktiveAnsicht === "einstellungen") zeichnen();
+        toast(`„${daten.name}“ entfernt.`);
+      }}, icon("ic-muell")) : null,
+    el("button",{ class:"knopf primaer", type:"button", style:"flex:1",
+      text: neu ? "Anlegen" : "Speichern", onclick:speichernFn })
+  );
+  dialogOeffnen({ titel: neu ? "Neuer Vermögensposten" : "Posten bearbeiten", koerper, fuss, ebene:2 });
 }
 
 /**
@@ -6824,6 +7177,59 @@ function zeichneEinstellungen(){
       el("div",{ class:"feld-hinweis", text:"Wenn eingetragen, zeigt Lohnwerk bei teuren Positionen, wie vielen Arbeitsstunden sie entsprechen." }))
   ));
 
+  /* --- Zakat-Vermögen --- */
+  const zkKarte = el("div",{ class:"karte" },
+    el("div",{ class:"karte-kopf" },
+      el("h2",{ text:"Zakat-Vermögen" }),
+      el("button",{ class:"knopf leise klein", type:"button",
+        onclick:() => zakatPostenDialog(null, () => zeichnen()) },
+        icon("ic-plus"), "Neu")
+    ),
+    el("p",{ class:"t-klein", style:"margin-top:-8px;margin-bottom:14px;line-height:1.5",
+      text:"Was du besitzt — Konten, Gold, Silber, Bitcoin. Der Zakat-Rechner unter Werkzeuge greift darauf zu. "
+         + "Du kannst so viele Posten anlegen, wie du brauchst, etwa mehrere Tagesgeldkonten." })
+  );
+
+  const zkPosten = zakatPosten();
+  if(zkPosten.length === 0){
+    zkKarte.appendChild(el("button",{ class:"knopf rahmen breit", type:"button",
+      onclick:() => zakatVorlagenAnlegen(() => zeichnen()) },
+      icon("ic-plus"), "Übliche Posten anlegen"));
+  } else {
+    zkPosten.forEach(pp => {
+      const art = ZAKAT_ARTEN[pp.art];
+      const wert = zakatPostenWert(pp);
+      const fehlt = zakatPreisFehlt(pp);
+      zkKarte.appendChild(el("div",{ class:"datenzeile", style:"align-items:center" },
+        el("button",{ type:"button", style:"flex:1;text-align:left;min-width:0;display:flex;align-items:center;gap:11px;min-height:44px",
+          onclick:() => zakatPostenDialog(pp, () => zeichnen()) },
+          (() => { const s = icon(art.icon); s.style.width="18px"; s.style.height="18px"; s.style.flex="none";
+                   s.style.color = pp.art==="schuld" ? "var(--rot)" : "var(--text-2)"; return s; })(),
+          el("span",{ style:"min-width:0" },
+            el("span",{ style:"display:block;font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap", text:pp.name }),
+            el("span",{ style:"display:block;font-size:12.5px;color:var(--text-2)",
+              text: art.geld ? art.name
+                  : `${pp.art==="btc" ? nfBtc.format(pp.wert) : nfZahl.format(pp.wert).replace(",00","")} ${art.einheit}`
+                    + (fehlt ? " · Tagespreis fehlt" : "") })
+          )
+        ),
+        el("span",{ style:`font-variant-numeric:tabular-nums;font-weight:600;white-space:nowrap;${pp.art==="schuld"?"color:var(--rot)":""}`,
+          text: fehlt ? "—" : (pp.art==="schuld" ? "− " : "") + euro(wert) })
+      ));
+    });
+    const v = zakatVermoegen();
+    zkKarte.appendChild(el("div",{ style:"display:flex;justify-content:space-between;gap:12px;align-items:baseline;margin-top:14px;padding-top:12px;border-top:1.5px solid var(--linie-stark)" },
+      el("span",{ class:"t-label", style:"font-weight:650", text:"Zakatpflichtig" }),
+      el("span",{ style:"font-size:18px;font-weight:650;font-variant-numeric:tabular-nums", text:euro(v.netto) })
+    ));
+    zkKarte.appendChild(el("div",{ class:"knopf-reihe", style:"margin-top:14px" },
+      el("button",{ class:"knopf klein rahmen", type:"button",
+        onclick:() => { UI.rechnerOffen = "zakat"; navigieren("werkzeuge"); } },
+        icon("ic-ziel"), "Zum Zakat-Rechner")
+    ));
+  }
+  wurzel.appendChild(zkKarte);
+
   /* --- Annahmen für die Hochrechnung --- */
   const zahlFeld = (wert, min, max, schritt, platzhalter, setzen) =>
     el("input",{ class:"eingabe", type:"number", min:String(min), max:String(max), step:String(schritt),
@@ -7024,6 +7430,54 @@ function csvExportieren(){
   zeilen.push(["Summe","Bar bereitlegen","","", zahl(k.barJahr/12), zahl(k.barJahr)].map(feld).join(trenn));
   zeilen.push(["Summe","Rücklage für Jahresrechnungen","","", zahl(k.ruecklageJahr/12), zahl(k.ruecklageJahr)].map(feld).join(trenn));
   zeilen.push(["Stand","Bereits zurückgelegt","","","", zahl(u.bestandGesamt)].map(feld).join(trenn));
+
+  /* --- Zakat-Vermögen --- */
+  const zkPosten = zakatPosten();
+  if(zkPosten.length > 0){
+    const v = zakatVermoegen();
+    const e = S.einstellungen;
+    zeilen.push("");
+    zeilen.push(["Zakat-Vermögen","Bezeichnung","Art","Menge","Einheit","Wert in Euro"].map(feld).join(trenn));
+    zkPosten.forEach(pp => {
+      const art = ZAKAT_ARTEN[pp.art];
+      zeilen.push([
+        "Posten", pp.name, art.name,
+        art.geld ? "" : (pp.art === "btc" ? nfBtc.format(pp.wert) : nfZahl.format(pp.wert)),
+        art.geld ? "" : art.einheit,
+        zahl(zakatPostenWert(pp))
+      ].map(feld).join(trenn));
+    });
+    zeilen.push(["Zakat","Besitz","","","", zahl(v.besitz)].map(feld).join(trenn));
+    if(v.schulden > 0){
+      zeilen.push(["Zakat", e.zakat.schule === "hanafi" ? "Schulden (abgezogen)" : "Schulden (nicht abgezogen)",
+        "","","", zahl(v.schulden)].map(feld).join(trenn));
+    }
+    zeilen.push(["Zakat","Zakatpflichtiges Vermögen","","","", zahl(v.netto)].map(feld).join(trenn));
+
+    /* Preise und Schwelle */
+    const nisab = e.zakat.grundlage === "silber"
+      ? Math.round(NISAB_SILBER_GRAMM * (e.silberPreisCent||0))
+      : Math.round(NISAB_GOLD_GRAMM * (e.goldPreisCent||0));
+    zeilen.push(["Zakat","Schwelle (Nisab)",
+      e.zakat.grundlage === "silber" ? NISAB_SILBER_GRAMM+" g Silber" : NISAB_GOLD_GRAMM+" g Gold",
+      "","", zahl(nisab)].map(feld).join(trenn));
+    zeilen.push(["Zakat","Rechtsschule", e.zakat.schule === "hanafi" ? "Hanafi" : "Schafi'i","","",""].map(feld).join(trenn));
+    if(e.goldPreisCent)   zeilen.push(["Preis","Gold je Gramm","","","", zahl(e.goldPreisCent)].map(feld).join(trenn));
+    if(e.silberPreisCent) zeilen.push(["Preis","Silber je Gramm","","","", zahl(e.silberPreisCent)].map(feld).join(trenn));
+    if(e.btcPreisCent)    zeilen.push(["Preis","Bitcoin je BTC","","","", zahl(e.btcPreisCent)].map(feld).join(trenn));
+    if(e.preiseStand)     zeilen.push(["Preis","Stand der Preise", datumLesbar(e.preiseStand),"","",""].map(feld).join(trenn));
+
+    /* Die fällige Zakat und der Abgleich */
+    const pflichtig = nisab > 0 && v.netto >= nisab;
+    const betrag = pflichtig ? Math.round(v.netto * ZAKAT_SATZ) : 0;
+    zeilen.push(["Zakat","Fällig (2,5 %)","","", zahl(betrag/12), zahl(betrag)].map(feld).join(trenn));
+    if(pflichtig){
+      const ab = zakatAbgleich(betrag);
+      zeilen.push(["Zakat","davon schon verplant","","", zahl(ab.verplant/12), zahl(ab.verplant)].map(feld).join(trenn));
+      zeilen.push(["Zakat","noch offen","","", zahl(ab.offen/12), zahl(ab.offen)].map(feld).join(trenn));
+    }
+    if(e.zakat.stichtag) zeilen.push(["Zakat","Stichtag", datumLesbar(e.zakat.stichtag),"","",""].map(feld).join(trenn));
+  }
 
   // BOM (U+FEFF) voranstellen, damit Excel die Umlaute richtig liest.
   const inhalt = "\uFEFF" + zeilen.join("\r\n");
@@ -7460,6 +7914,7 @@ function zeichnen(){
     case "einnahmen":     zeichneEinnahmen(); break;
     case "ausgaben":      zeichneAusgaben(); break;
     case "auswertung":    zeichneAuswertung(); break;
+    case "werkzeuge":     zeichneWerkzeuge(); break;
     case "einstellungen": zeichneEinstellungen(); break;
   }
   zeichneAktionsleiste();
