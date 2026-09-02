@@ -248,18 +248,24 @@ Nach dem Stichtag beginnt ein neues Zakat-Jahr: Der Knopf **Auf null setzen** l�
 
 #### Stichtag im Handy-Kalender
 
-Hast du einen Stichtag gewählt, legt dir der Knopf **20 Termine in den Kalender** eine `.ics`-Datei an — das Format, das iPhone und Android verstehen. Darin stehen die nächsten 20 Stichtage, jeder im Mondjahr-Takt gerechnet (also rund elf Tage früher als im Jahr davor), als ganztägiger Termin mit einer **Erinnerung am Vortag um zwölf Uhr**.
+Hast du einen Stichtag gewählt, legt dir der Knopf **20 Termine in den Kalender** eine `.ics`-Datei an — das Format, das iPhone und Android verstehen. Darin stehen die nächsten 20 Stichtage, jeder im Mondjahr-Takt gerechnet (also rund elf Tage früher als im Jahr davor), ganztägig, mit einer **Erinnerung am Vortag um zwölf Uhr**.
+
+Es ist **eine einzige Terminreihe**, nicht zwanzig einzelne Termine. Das ist wichtig fürs Löschen: Eine Reihe wirst du mit einem Griff wieder los, zwanzig Einzeltermine müsstest du einzeln anfassen.
+
+Eine gewöhnliche Wiederholungsregel taugt dafür nicht — die rechnet in Sonnenjahren, das islamische Jahr ist elf Tage kürzer. Lohnwerk zählt die Termine deshalb einzeln auf (`RDATE`), nach Umm al-Qura gerechnet. Für den Kalender bleibt es trotzdem eine Serie.
 
 Die Datei entsteht auf deinem Gerät. Es geht dabei nichts ins Netz.
 
-So kommt sie in den Kalender:
+**So kommt sie hinein:**
 
-- **iPhone:** Datei nach dem Speichern in *Downloads* antippen → *Alle hinzufügen*
+- **iPhone:** Datei nach dem Speichern in *Downloads* antippen → *Alle hinzufügen* → Kalender wählen
 - **Android:** aus der Benachrichtigung oder aus *Dateien* öffnen → Kalender wählen
 
-**Wenn du den Stichtag änderst:** Gib die Termine einfach neu aus. Sie behalten ihre Kennung (im Format `UID`) und bekommen eine höhere Fassungsnummer (`SEQUENCE`) — ein Kalender, der sich an den Standard hält, **verschiebt** die vorhandenen Termine dann auf das neue Datum, statt neue danebenzulegen. Lohnwerk weist dich im Reiter Kalender darauf hin, sobald sich der Stichtag seit der letzten Ausgabe geändert hat.
+**So wirst du sie wieder los:** Tippe im Kalender einen der Termine an, wähle Löschen — und dann *Alle Termine löschen* statt *Nur diesen Termin*. Damit ist die ganze Reihe weg.
 
-Sollte deine Kalender-App das nicht beherrschen, legt der Knopf **Termine wieder entfernen** eine Absage-Datei an. Öffnest du sie, nimmt der Kalender die Termine heraus. Auch das können nicht alle Apps — dann löschst du sie dort von Hand.
+> **Warum es dafür keinen Knopf in Lohnwerk gibt.** Öffnest du auf dem Handy eine Kalenderdatei, fügt das Betriebssystem Termine grundsätzlich nur *hinzu*. Es gleicht keine Kennungen ab, löscht nichts und ersetzt nichts — gleichgültig, was in der Datei steht. Die Absage-Anweisung des Standards (`METHOD:CANCEL`) greift nur im Einladungsverfahren mit Teilnehmern über Mail, nicht beim Öffnen einer Datei. Eine frühere Fassung von Lohnwerk hatte einen solchen Knopf; er konnte auf dem iPhone nichts bewirken und ist deshalb wieder verschwunden.
+
+**Wenn du den Stichtag änderst:** Lösche im Kalender zuerst die alte Reihe, dann gib sie hier neu aus — sonst liegen zwei nebeneinander. Lohnwerk weist dich darauf hin, sobald sich der Stichtag seit der letzten Ausgabe geändert hat.
 
 Die Daten sind nach dem Umm-al-Qura-Kalender gerechnet. Das ist eine Rechnung, keine Mondsichtung — vor Ort kann der Tag um ein bis zwei Tage abweichen.
 

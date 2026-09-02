@@ -8,7 +8,7 @@
 
 /* Bei jeder neuen Fassung der App diese Zahl erhöhen.
    Dann lädt der Browser die Dateien frisch. */
-const CACHE_NAME = "lohnwerk-v20";
+const CACHE_NAME = "lohnwerk-v21";
 
 /* Diese Dateien machen die App aus. */
 const DATEIEN = [
