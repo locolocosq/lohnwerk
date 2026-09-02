@@ -1334,17 +1334,8 @@ details.klapp .klapp-inhalt{padding-bottom:var(--s4);}
 /* Die Fassung der App. Sie steht in den Einstellungen, damit du prüfen
    kannst, ob dein Gerät die neueste Version hat. Bei jeder Änderung
    zusammen mit CACHE_NAME in sw.js hochzählen. */
-const APP_VERSION = "23";
+const APP_VERSION = "24";
 
-/* Wie viele Jahre im Voraus? Wenige Termine sind später leichter
-   wieder loszuwerden — deshalb ist die Vorgabe bescheiden. */
-const ICS_JAHRE_WAHL = [1, 3, 5, 10, 20];
-const ICS_JAHRE_VORGABE = 5;
-
-function icsJahre(){
-  const n = Number(S.einstellungen.zakat?.kalenderJahre);
-  return ICS_JAHRE_WAHL.includes(n) ? n : ICS_JAHRE_VORGABE;
-}
 
 const SPEICHER_SCHLUESSEL = "lohnwerk.v1";
 const SPEICHER_DEFEKT = "lohnwerk.backup.defekt";
@@ -1776,7 +1767,6 @@ function zustandNeu(){
         /* Für die Kalender-Termine: eine feste Kennung der Reihe und
            die Fassungsnummer, die bei jeder Ausgabe hochzählt. */
         kalenderFolge: null,
-        kalenderJahre: ICS_JAHRE_VORGABE,
         kalenderStand: 0,
         kalenderStandGesetzt: null,
         stand: null,
@@ -1905,7 +1895,6 @@ function zustandSaeubern(roh){
     stand: typeof zk.stand === "string" ? zk.stand : null,
     stichtag: typeof zk.stichtag === "string" ? zk.stichtag : null,
     kalenderFolge: typeof zk.kalenderFolge === "string" && zk.kalenderFolge ? zk.kalenderFolge : null,
-    kalenderJahre: ICS_JAHRE_WAHL.includes(+zk.kalenderJahre) ? +zk.kalenderJahre : ICS_JAHRE_VORGABE,
     kalenderStand: Number.isFinite(+zk.kalenderStand) ? Math.max(0, Math.round(+zk.kalenderStand)) : 0,
     kalenderStandGesetzt: typeof zk.kalenderStandGesetzt === "string" ? zk.kalenderStandGesetzt : null,
     zahlungen: [],
@@ -5724,17 +5713,15 @@ async function preiseAbrufen(knopf, danach){
    Android verstehen. Die Datei entsteht auf deinem Gerät; es geht
    dabei nichts ins Netz.
 
-   Ausgegeben wird ein eigener Termin je Stichtag. Eine Serie wäre
-   schöner, ist aber auf dem Handy nicht zu haben — die Begründung
-   steht bei zakatIcsBauen().
+   Ausgegeben wird genau ein Termin — der nächste Stichtag. Die
+   Begründung steht bei zakatIcsBauen().
 
    Was Lohnwerk NICHT kann: einen schon eingetragenen Termin wieder
    entfernen oder ersetzen. Öffnet man auf dem Handy eine .ics, fügt
    das Betriebssystem grundsätzlich nur hinzu; UID und SEQUENCE
    werden dabei nicht abgeglichen. Absagen (METHOD:CANCEL) greifen
-   nur im Einladungsverfahren mit Teilnehmern über Mail. Deshalb rät
-   die Oberfläche, vorher einen eigenen Kalender anzulegen: Den
-   löscht man später als Ganzes, und alle Termine sind weg.
+   nur im Einladungsverfahren mit Teilnehmern über Mail. Bei einem
+   einzelnen Termin ist das verschmerzbar: antippen, löschen.
    ---------------------------------------------------------------- */
 
 /** Die Kennung der Terminreihe. Einmal vergeben, bleibt sie — nur so
@@ -5746,7 +5733,7 @@ function zakatKalenderFolge(){
 }
 
 /** Die Stichtage der nächsten Jahre, im Mondjahr-Takt. */
-function zakatStichtage(anzahl = icsJahre()){
+function zakatStichtage(anzahl = 1){
   const iso = S.einstellungen.zakat?.stichtag;
   if(!iso) return [];
   const start = new Date(iso + "T12:00:00");
@@ -5841,21 +5828,17 @@ function icsZeitstempel(d = new Date()){
 }
 
 /**
- * Baut die Kalenderdatei: ein eigener Termin je Stichtag.
+ * Baut die Kalenderdatei: ein Termin für den nächsten Stichtag.
  *
- * Warum nicht als Serie? Weil keine der beiden Möglichkeiten trägt:
+ * Bewusst nur einer. Mehrere Jahre im Voraus hätten bedeutet:
+ * mehrere Einträge, die man später einzeln wieder wegräumen muss.
+ * Eine Serie wäre die Alternative gewesen, ist aber nicht zu haben —
+ * eine Wiederholungsregel (RRULE) rechnet in Sonnenjahren, das
+ * islamische Jahr ist elf Tage kürzer; und eine Aufzählung einzelner
+ * Termine (RDATE) verwirft iOS beim Einlesen bis auf den ersten.
  *
- * · Eine Wiederholungsregel (RRULE) rechnet in Sonnenjahren. Das
- *   islamische Jahr ist rund elf Tage kürzer — die Termine lägen
- *   falsch.
- * · Eine Liste einzelner Termine (RDATE) wäre im Standard richtig,
- *   aber iOS speichert Wiederholungen nur als Regel. Eine Aufzählung
- *   von Daten passt nicht in dieses Modell; beim Einlesen bleibt nur
- *   der erste Termin übrig, die übrigen verschwinden stillschweigend.
- *
- * Also einzelne Termine. Damit sie sich trotzdem in einem Zug
- * löschen lassen, empfiehlt die Oberfläche, vorher einen eigenen
- * Kalender „Zakat“ anzulegen — den wirft man später als Ganzes weg.
+ * Ein Termin, ein Löschvorgang. Nach dem Stichtag holt man sich den
+ * nächsten.
  */
 function zakatIcsBauen(){
   const termine = zakatStichtage();
@@ -5865,7 +5848,6 @@ function zakatIcsBauen(){
   const folge = zakatKalenderFolge();
   const stand = Math.max(0, Math.round(Number(z.kalenderStand) || 0));
   const stempel = icsZeitstempel();
-  const letzter = termine[termine.length - 1];
 
   const zeilen = [
     "BEGIN:VCALENDAR",
@@ -5887,12 +5869,11 @@ function zakatIcsBauen(){
       "Prüfe: Liegt dein Vermögen über der Schwelle (Nisab)? Was hast du im vergangenen "
       + "Mondjahr schon entrichtet? Was bleibt offen?",
       "",
-      "Ein Mondjahr hat rund 354 Tage — elf weniger als ein Sonnenjahr. Der Termin wandert "
-      + "deshalb jedes Jahr nach vorn. Deswegen steht jeder Stichtag einzeln im Kalender "
-      + "und nicht als jährliche Wiederholung.",
+      "Ein Mondjahr hat rund 354 Tage — elf weniger als ein Sonnenjahr. Der Stichtag wandert "
+      + "deshalb jedes Jahr nach vorn. Den Termin fürs nächste Jahr holst du dir in Lohnwerk, "
+      + "sobald dieser vorbei ist.",
       "",
-      `Termin ${i+1} von ${termine.length}, angelegt von Lohnwerk. Die Reihe reicht bis `
-      + letzter.datum.getFullYear() + ".",
+      "Angelegt von Lohnwerk.",
       "",
       "Berechnet nach dem Umm-al-Qura-Kalender. Das ist eine Rechnung, keine Mondsichtung — "
       + "vor Ort kann der Tag um ein bis zwei Tage abweichen."
@@ -5945,8 +5926,7 @@ function zakatKalenderExport(){
   speichern();
 
   dateiHerunterladen(`zakat-stichtag-${datumIso()}.ics`, inhalt, "text/calendar;charset=utf-8");
-  toast(`${termine.length} ${plural(termine.length,"Termin","Termine")} gespeichert. `
-      + `Öffne die Datei, um sie in den Kalender zu legen.`);
+  toast("Termin gespeichert. Öffne die Datei, um ihn in den Kalender zu legen.");
   zeichnen();
 }
 
@@ -5958,134 +5938,76 @@ function zakatKalenderKarte(){
 
   if(!z.stichtag){
     karte.appendChild(el("p",{ class:"t-klein", style:"margin-top:-8px;line-height:1.55",
-      text:"Sobald du oben einen Stichtag gewählt hast, kannst du ihn hier für die kommenden "
-         + "Jahre in den Kalender deines Handys legen — mit Erinnerung am Vortag." }));
+      text:"Sobald du oben einen Stichtag gewählt hast, kannst du ihn hier als Termin in den "
+         + "Kalender deines Handys legen — mit Erinnerung am Vortag." }));
     return karte;
   }
 
-  const jahre = icsJahre();
   const termine = zakatStichtage();
+  if(termine.length === 0){
+    karte.appendChild(el("p",{ class:"t-klein", style:"margin-top:-8px;line-height:1.55",
+      text:"Der Termin lässt sich aus diesem Stichtag gerade nicht berechnen." }));
+    return karte;
+  }
+
+  const t = termine[0];
   const schonAusgegeben = z.kalenderStandGesetzt || null;
-  const veraltet = schonAusgegeben && schonAusgegeben !== z.stichtag;
-  const ausgaben = Math.max(0, Math.round(Number(z.kalenderStand) || 0));
+  const gleicherTag = schonAusgegeben === z.stichtag;
 
-  karte.appendChild(el("p",{ class:"t-klein", style:"margin-top:-8px;margin-bottom:16px;line-height:1.55",
-    text:"Deine Stichtage als Kalenderdatei — jeder als ganztägiger Termin mit einer Erinnerung "
-       + "am Vortag um zwölf Uhr. Die Datei entsteht auf deinem Gerät, es geht nichts ins Netz." }));
+  karte.appendChild(el("p",{ class:"t-klein", style:"margin-top:-8px;margin-bottom:14px;line-height:1.55",
+    text:"Ein Termin für deinen nächsten Stichtag — ganztägig, mit einer Erinnerung am Vortag "
+       + "um zwölf Uhr. Die Datei entsteht auf deinem Gerät, es geht nichts ins Netz." }));
 
-  /* --- Wie weit im Voraus? --- */
-  const wahlBox = el("div",{ class:"chip-reihe", style:"margin-bottom:6px" });
-  ICS_JAHRE_WAHL.forEach(n => {
-    wahlBox.appendChild(el("button",{ class:"chip wahl", type:"button",
-      "aria-pressed": n === jahre ? "true":"false",
-      onclick:() => { z.kalenderJahre = n; aendern(); }},
-      el("span",{ text: n === 1 ? "1 Jahr" : n + " Jahre" })));
-  });
-  karte.appendChild(el("div",{ class:"feld" },
-    el("div",{ class:"feld-label", text:"Wie weit im Voraus" }), wahlBox,
-    el("div",{ class:"feld-hinweis",
-      text:"Jeder Stichtag wird ein eigener Termin. Wenige sind später leichter wieder "
-         + "loszuwerden — du kannst die Datei jederzeit neu anlegen." })
+  /* --- Der eine Termin --- */
+  karte.appendChild(el("div",{ style:"padding:16px;border-radius:14px;background:var(--karte-2);margin-bottom:14px" },
+    el("div",{ class:"t-kapitaelchen", style:"margin-bottom:4px", text:"Nächster Stichtag" }),
+    el("div",{ style:"font-size:20px;font-weight:640;letter-spacing:-.02em",
+      text: datumLesbar(t.datum.toISOString()) }),
+    el("div",{ class:"t-klein", style:"margin-top:3px",
+      text: t.datum.toLocaleDateString("de-DE",{ weekday:"long" })
+          + (t.hijriJahr ? ` · ${t.hijriTag}. ${HIJRI_MONATE[t.hijriMonat-1]} ${t.hijriJahr}` : "") })
   ));
 
-  /* --- Die Termine --- */
-  if(termine.length > 0){
-    const vorschau = el("div",{ style:"margin:4px 0 14px" });
-    termine.slice(0,3).forEach(t => {
-      vorschau.appendChild(el("div",{ class:"datenzeile" },
-        el("span",{ class:"dz-name" },
-          el("span",{ text: datumLesbar(t.datum.toISOString()) }),
-          t.hijriJahr ? el("span",{ class:"neben",
-            text:`${t.hijriTag}. ${HIJRI_MONATE[t.hijriMonat-1]} ${t.hijriJahr}` }) : null),
-        el("span",{ class:"dz-wert", style:"font-weight:500",
-          text: t.datum.toLocaleDateString("de-DE",{ weekday:"long" }) })
-      ));
-    });
-    if(termine.length > 3){
-      vorschau.appendChild(el("p",{ class:"t-klein", style:"margin-top:8px",
-        text:`… und ${termine.length - 3} weitere bis ${termine[termine.length-1].datum.getFullYear()}.` }));
-    }
-    karte.appendChild(vorschau);
-  }
-
-  /* --- Der Rat, der später das Löschen erspart --- */
-  karte.appendChild(el("div",{ class:"banner", style:"margin-bottom:14px" },
-    icon("ic-info"),
-    el("div",{ class:"inhalt-b", style:"line-height:1.55" },
-      el("strong",{ text:"Leg dir vorher einen eigenen Kalender an." }),
-      el("div",{ style:"margin-top:3px",
-        text:"Nenn ihn „Zakat“ und wähle ihn beim Einlesen aus. Dann wirst du später alle "
-           + "Termine mit einem Griff los, indem du diesen Kalender löschst." })
-    )
-  ));
-
-  /* --- Warnung: schon mehrfach ausgegeben --- */
-  if(ausgaben > 1){
-    karte.appendChild(el("div",{ class:"banner warn", style:"margin-bottom:14px" },
-      icon("ic-warn"),
-      el("div",{ class:"inhalt-b", style:"line-height:1.55" },
-        el("strong",{ text:`Du hast die Termine bisher ${ausgaben}-mal ausgegeben.` }),
-        el("div",{ style:"margin-top:3px",
-          text:"Jede Ausgabe legt beim Einlesen einen neuen Satz an — sie ersetzt die alten "
-             + "nicht. Hast du zwischendurch nicht aufgeräumt, liegen mehrere Reihen "
-             + "übereinander im Kalender. Wie du sie alle findest, steht weiter unten." })
-      )
+  if(gleicherTag){
+    karte.appendChild(el("div",{ class:"banner", style:"margin-bottom:14px" },
+      icon("ic-info"),
+      el("div",{ class:"inhalt-b", style:"line-height:1.55",
+        text:"Diesen Termin hast du schon einmal ausgegeben. Gibst du ihn erneut aus, legt dein "
+           + "Handy einen zweiten daneben — es ersetzt den vorhandenen nicht." })
     ));
-  }
-
-  if(veraltet){
+  } else if(schonAusgegeben){
     karte.appendChild(el("div",{ class:"banner warn", style:"margin-bottom:14px" },
       icon("ic-warn"),
       el("div",{ class:"inhalt-b", style:"line-height:1.55",
-        text:"Du hast den Stichtag geändert, seit du die Termine zuletzt ausgegeben hast. "
-           + "Räum im Kalender zuerst die alten weg, dann gib sie hier neu aus." })
+        text:"Du hast den Stichtag geändert, seit du zuletzt einen Termin ausgegeben hast. "
+           + "Lösche den alten im Kalender, dann gib den neuen hier aus." })
     ));
   }
 
   karte.appendChild(el("button",{ class:"knopf primaer breit", type:"button",
     onclick:() => zakatKalenderExport() },
-    icon("ic-kalender"),
-    schonAusgegeben
-      ? "Termine neu ausgeben"
-      : `${termine.length} ${plural(termine.length,"Termin","Termine")} in den Kalender`));
+    icon("ic-kalender"), gleicherTag ? "Termin noch einmal ausgeben" : "Termin in den Kalender"));
 
-  /* --- Anleitung: hinein --- */
+  /* --- Anleitung --- */
   karte.appendChild(el("div",{ style:"margin-top:18px;padding-top:16px;border-top:1px solid var(--linie)" },
-    el("div",{ class:"t-kapitaelchen", style:"margin-bottom:10px", text:"So kommen sie hinein" }),
+    el("div",{ class:"t-kapitaelchen", style:"margin-bottom:10px", text:"So kommt er hinein" }),
     el("p",{ class:"t-klein", style:"line-height:1.55;margin-bottom:8px",
-      html:"<strong>iPhone:</strong> In der Kalender-App unten auf „Kalender“ tippen, "
-         + "„Kalender hinzufügen“, ihn „Zakat“ nennen. Dann die gespeicherte Datei in "
-         + "„Downloads“ antippen, „Alle hinzufügen“ und diesen Kalender wählen." }),
+      html:"<strong>iPhone:</strong> Die gespeicherte Datei in „Downloads“ antippen, dann auf "
+         + "„Hinzufügen“ und den Kalender wählen." }),
     el("p",{ class:"t-klein", style:"line-height:1.55",
-      html:"<strong>Android:</strong> Einen neuen Kalender legst du in den Einstellungen deines "
-         + "Google-Kontos an. Danach die Datei aus der Benachrichtigung oder aus „Dateien“ "
+      html:"<strong>Android:</strong> Die Datei aus der Benachrichtigung oder aus „Dateien“ "
          + "öffnen und den Kalender wählen." })
   ));
 
-  /* --- Anleitung: heraus, auch die von früher --- */
-  karte.appendChild(el("div",{ style:"margin-top:16px;padding-top:14px;border-top:1px solid var(--linie)" },
-    el("div",{ class:"t-kapitaelchen", style:"margin-bottom:10px", text:"So wirst du sie wieder los" }),
-    el("p",{ class:"t-klein", style:"line-height:1.55;margin-bottom:10px",
-      html:"<strong>Liegen sie im eigenen Kalender:</strong> lösche diesen Kalender. "
-         + "Am iPhone in der Kalender-App unten auf „Kalender“, das ⓘ neben „Zakat“, "
-         + "ganz unten „Kalender löschen“. Alle darin sind damit weg." }),
-    el("p",{ class:"t-klein", style:"line-height:1.55;margin-bottom:10px",
-      html:"<strong>Findest du nicht alle:</strong> Es liegen noch welche aus einer früheren "
-         + "Ausgabe in einem anderen Kalender. Such in der Kalender-App nach "
-         + "<strong>Zakat</strong> — am iPhone über die Lupe oben rechts. Die Suche geht über "
-         + "alle Kalender und zeigt jeden Termin, auch die in künftigen Jahren. Tipp sie "
-         + "einzeln an und lösche sie." }),
-    el("p",{ class:"t-klein", style:"line-height:1.55",
-      text:"Ein Knopf in Lohnwerk kann das nicht übernehmen: Öffnest du eine Kalenderdatei auf "
-         + "dem Handy, fügt das Betriebssystem Termine grundsätzlich nur hinzu. Es löscht "
-         + "keine und ersetzt keine — gleichgültig, was in der Datei steht." })
-  ));
+  karte.appendChild(el("p",{ class:"t-klein", style:"margin-top:16px;line-height:1.55",
+    text:"Loswerden: den Termin im Kalender antippen und löschen. Ein Knopf in Lohnwerk kann das "
+       + "nicht übernehmen — öffnest du eine Kalenderdatei auf dem Handy, fügt das "
+       + "Betriebssystem Termine grundsätzlich nur hinzu. Es löscht keine und ersetzt keine." }));
 
-  karte.appendChild(el("p",{ class:"t-klein", style:"margin-top:14px;line-height:1.55",
-    text:"Warum einzelne Termine und keine Serie? Eine Wiederholungsregel rechnet in "
-       + "Sonnenjahren — die Stichtage lägen falsch, weil das Mondjahr elf Tage kürzer ist. "
-       + "Und eine Liste einzelner Termine, wie der Standard sie erlaubt, kann iOS nicht "
-       + "speichern: Dort behält der Kalender nur den ersten und verwirft den Rest." }));
+  karte.appendChild(el("p",{ class:"t-klein", style:"margin-top:10px;line-height:1.55",
+    text:"Ist der Stichtag vorbei, komm wieder her und gib den nächsten aus. Lohnwerk rechnet "
+       + "ihn dann schon auf das kommende Mondjahr — rund elf Tage früher im Kalender als "
+       + "dieses Jahr." }));
 
   return karte;
 }

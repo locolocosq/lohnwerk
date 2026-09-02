@@ -233,7 +233,7 @@ Der Reiter **Zakat** hat vier Unterreiter:
 
 - **Ergebnis** — die Rechnung und die Aufschlüsselung
 - **Einstellen** — Rechtsschule (**hanafitisch** oder **schafiitisch**), Grundlage der Schwelle, Tagespreise samt Abruf-Knopf, schon entrichtete Zakat
-- **Kalender** — der Stichtag, wahlweise nach islamischem oder gewöhnlichem Datum, mit dem laufenden Hidschri-Jahr. Darunter der Knopf **Termine in den Kalender**
+- **Kalender** — der Stichtag, wahlweise nach islamischem oder gewöhnlichem Datum, mit dem laufenden Hidschri-Jahr. Darunter der Knopf **Termin in den Kalender**
 - **Wissen** — die Erklärungen zum Ausklappen
 
 Die Vermögensposten selbst stehen nicht hier, sondern unter *Zahlen → Vermögen*. Ein Verweis im Reiter **Einstellen** führt direkt dorthin.
@@ -248,33 +248,26 @@ Nach dem Stichtag beginnt ein neues Zakat-Jahr: Der Knopf **Auf null setzen** l�
 
 #### Stichtag im Handy-Kalender
 
-Hast du einen Stichtag gewählt, legt dir Lohnwerk eine `.ics`-Datei an — das Format, das iPhone und Android verstehen. Darin stehen die kommenden Stichtage, jeder im Mondjahr-Takt gerechnet (also rund elf Tage früher als im Jahr davor), als ganztägiger Termin mit einer **Erinnerung am Vortag um zwölf Uhr**. Im Titel steht das islamische Jahr: *Zakat-Stichtag · 1. Ramadan 1448 AH*.
-
-**Wie weit im Voraus,** wählst du selbst: 1, 3, 5, 10 oder 20 Jahre. Voreingestellt sind **5**. Jeder Stichtag wird ein eigener Termin — wenige sind später leichter wieder loszuwerden, und du kannst die Datei jederzeit neu anlegen.
+Hast du einen Stichtag gewählt, legt dir der Knopf **Termin in den Kalender** eine `.ics`-Datei an — das Format, das iPhone und Android verstehen. Darin steht **genau ein Termin**: dein nächster Stichtag, ganztägig, mit einer **Erinnerung am Vortag um zwölf Uhr**. Im Titel steht das islamische Jahr: *Zakat-Stichtag · 1. Ramadan 1448 AH*.
 
 Die Datei entsteht auf deinem Gerät. Es geht dabei nichts ins Netz.
 
-**Leg dir vorher einen eigenen Kalender an.** Nenn ihn „Zakat" und wähle ihn beim Einlesen aus. Dann wirst du später alle Termine mit einem Griff wieder los, indem du diesen Kalender löschst — statt jeden Eintrag einzeln anzufassen. Das ist der ganze Kniff.
+**So kommt er hinein:**
 
-**So kommen sie hinein:**
+- **iPhone:** Datei nach dem Speichern in *Downloads* antippen → *Hinzufügen* → Kalender wählen
+- **Android:** aus der Benachrichtigung oder aus *Dateien* öffnen → Kalender wählen
 
-- **iPhone:** Kalender-App → unten auf *Kalender* → *Kalender hinzufügen* → „Zakat" nennen. Dann die Datei in *Downloads* antippen → *Alle hinzufügen* → diesen Kalender wählen
-- **Android:** Neuen Kalender in den Einstellungen des Google-Kontos anlegen. Dann die Datei aus der Benachrichtigung oder aus *Dateien* öffnen → Kalender wählen
+**So wirst du ihn wieder los:** Termin im Kalender antippen, löschen. Das war's.
 
-**So wirst du sie wieder los:**
+**Ist der Stichtag vorbei,** kommst du wieder her und gibst den nächsten aus. Lohnwerk rechnet ihn dann schon auf das kommende Mondjahr — rund elf Tage früher im Kalender als dieses Jahr.
 
-- **Liegen sie im eigenen Kalender:** lösche diesen Kalender. Am iPhone: Kalender-App → unten *Kalender* → das ⓘ neben „Zakat" → ganz unten *Kalender löschen*. Alle darin sind damit weg.
-- **Findest du nicht alle:** Dann liegen noch welche aus einer früheren Ausgabe in einem anderen Kalender. Such in der Kalender-App nach **Zakat** — am iPhone über die Lupe oben rechts. Die Suche geht über *alle* Kalender und findet auch Termine in künftigen Jahren, die im Monatsraster nicht auffallen. Tipp sie einzeln an und lösche sie.
-
-> **Achtung bei mehrfacher Ausgabe.** Jedes Einlesen legt einen *neuen* Satz Termine an; es ersetzt die vorhandenen nicht. Räumst du zwischendurch nicht auf, liegen mehrere Reihen übereinander. Lohnwerk zeigt dir im Reiter Kalender, wie oft du die Datei schon ausgegeben hast, und warnt ab dem zweiten Mal.
-
-> **Warum einzelne Termine und keine Serie?** Eine gewöhnliche Wiederholungsregel (`RRULE`) rechnet in Sonnenjahren — die Stichtage lägen falsch. Der Standard erlaubt zwar auch, die Termine einer Serie einzeln aufzuzählen (`RDATE`), aber iOS speichert Wiederholungen nur als Regel: Eine Aufzählung von Daten passt nicht in dieses Modell, der Kalender behält beim Einlesen nur den ersten Termin und verwirft den Rest. Lohnwerk hat das kurzzeitig so ausgeliefert; seit Fassung 22 sind es wieder einzelne Termine, die vollständig ankommen. Deshalb der eigene Kalender: Er ist der einzige Weg, sie später in einem Zug loszuwerden.
+> **Warum nur ein Termin und keine Reihe über viele Jahre?** Weil man sie später alle einzeln wieder wegräumen müsste. Eine echte Serie wäre die Alternative gewesen, ist aber nicht zu haben: Eine gewöhnliche Wiederholungsregel (`RRULE`) rechnet in Sonnenjahren — die Stichtage lägen falsch, weil das Mondjahr elf Tage kürzer ist. Und die Aufzählung einzelner Termine (`RDATE`), die der Standard erlaubt, verwirft iOS beim Einlesen bis auf den ersten: Dort werden Wiederholungen nur als Regel gespeichert, nicht als Liste von Daten. Ein Termin, ein Löschvorgang.
 
 > **Warum es keinen Lösch-Knopf gibt.** Öffnest du auf dem Handy eine Kalenderdatei, fügt das Betriebssystem Termine grundsätzlich nur *hinzu*. Es gleicht keine Kennungen ab, löscht nichts und ersetzt nichts — gleichgültig, was in der Datei steht. Die Absage-Anweisung des Standards (`METHOD:CANCEL`) greift nur im Einladungsverfahren mit Teilnehmern über Mail, nicht beim Öffnen einer Datei.
 
-**Wenn du den Stichtag änderst:** Lösche im Kalender zuerst die alten Termine, dann gib sie hier neu aus — sonst liegen zwei Reihen nebeneinander. Lohnwerk weist dich darauf hin, sobald sich der Stichtag seit der letzten Ausgabe geändert hat.
+Lohnwerk merkt sich, ob du den Termin für diesen Stichtag schon ausgegeben hast, und weist dich darauf hin — sowohl beim zweiten Ausgeben desselben Termins als auch, wenn du den Stichtag zwischenzeitlich geändert hast.
 
-Die Daten sind nach dem Umm-al-Qura-Kalender gerechnet. Das ist eine Rechnung, keine Mondsichtung — vor Ort kann der Tag um ein bis zwei Tage abweichen.
+Das Datum ist nach dem Umm-al-Qura-Kalender gerechnet. Das ist eine Rechnung, keine Mondsichtung — vor Ort kann der Tag um ein bis zwei Tage abweichen.
 
 - Rechtsschule wählen; die Schwelle (Nisab) wechselt automatisch mit — Silber bei Hanafi, Gold bei Schafi'i, beides umstellbar
 - Vermögenswerte unter *Zahlen → Vermögen* eintragen: Bargeld, Kontoguthaben, Gold und Silber in Gramm, Handelsware, Anlagen, Forderungen, Schulden
