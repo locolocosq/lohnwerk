@@ -233,10 +233,35 @@ Der Reiter **Zakat** hat vier Unterreiter:
 
 - **Ergebnis** — die Rechnung und die Aufschlüsselung
 - **Einstellen** — Rechtsschule (**hanafitisch** oder **schafiitisch**), Grundlage der Schwelle, Tagespreise samt Abruf-Knopf, schon entrichtete Zakat
-- **Kalender** — der Stichtag, wahlweise nach islamischem oder gewöhnlichem Datum, mit dem laufenden Hidschri-Jahr
+- **Kalender** — der Stichtag, wahlweise nach islamischem oder gewöhnlichem Datum, mit dem laufenden Hidschri-Jahr. Darunter der Knopf **20 Termine in den Kalender**
 - **Wissen** — die Erklärungen zum Ausklappen
 
 Die Vermögensposten selbst stehen nicht hier, sondern unter *Zahlen → Vermögen*. Ein Verweis im Reiter **Einstellen** führt direkt dorthin.
+
+#### Schon entrichtete Zakat
+
+Unter *Zakat → Einstellen → Schon entrichtet* trägst du jede Zahlung **einzeln** ein: wohin sie ging, wie viel, wann. Darunter steht die Gegenüberstellung — Zakat gesamt, davon entrichtet, was offen bleibt. Im Reiter **Ergebnis** erscheinen die Zahlungen ebenfalls einzeln unter der Summe.
+
+Die Liste ändert nichts am Monatsbetrag; sie ist reine Übersicht. Alle Zahlungen landen auch in der CSV-Ausgabe, in einem eigenen Block *Zakat entrichtet* mit Bezeichnung, Datum und Betrag.
+
+Nach dem Stichtag beginnt ein neues Zakat-Jahr: Der Knopf **Auf null setzen** löscht die Liste — nach einer Rückfrage und mit **Rückgängig** im Hinweis darunter. Vermögen, Preise und Stichtag bleiben unberührt.
+
+#### Stichtag im Handy-Kalender
+
+Hast du einen Stichtag gewählt, legt dir der Knopf **20 Termine in den Kalender** eine `.ics`-Datei an — das Format, das iPhone und Android verstehen. Darin stehen die nächsten 20 Stichtage, jeder im Mondjahr-Takt gerechnet (also rund elf Tage früher als im Jahr davor), als ganztägiger Termin mit einer **Erinnerung am Vortag um zwölf Uhr**.
+
+Die Datei entsteht auf deinem Gerät. Es geht dabei nichts ins Netz.
+
+So kommt sie in den Kalender:
+
+- **iPhone:** Datei nach dem Speichern in *Downloads* antippen → *Alle hinzufügen*
+- **Android:** aus der Benachrichtigung oder aus *Dateien* öffnen → Kalender wählen
+
+**Wenn du den Stichtag änderst:** Gib die Termine einfach neu aus. Sie behalten ihre Kennung (im Format `UID`) und bekommen eine höhere Fassungsnummer (`SEQUENCE`) — ein Kalender, der sich an den Standard hält, **verschiebt** die vorhandenen Termine dann auf das neue Datum, statt neue danebenzulegen. Lohnwerk weist dich im Reiter Kalender darauf hin, sobald sich der Stichtag seit der letzten Ausgabe geändert hat.
+
+Sollte deine Kalender-App das nicht beherrschen, legt der Knopf **Termine wieder entfernen** eine Absage-Datei an. Öffnest du sie, nimmt der Kalender die Termine heraus. Auch das können nicht alle Apps — dann löschst du sie dort von Hand.
+
+Die Daten sind nach dem Umm-al-Qura-Kalender gerechnet. Das ist eine Rechnung, keine Mondsichtung — vor Ort kann der Tag um ein bis zwei Tage abweichen.
 
 - Rechtsschule wählen; die Schwelle (Nisab) wechselt automatisch mit — Silber bei Hanafi, Gold bei Schafi'i, beides umstellbar
 - Vermögenswerte unter *Zahlen → Vermögen* eintragen: Bargeld, Kontoguthaben, Gold und Silber in Gramm, Handelsware, Anlagen, Forderungen, Schulden
@@ -281,17 +306,22 @@ Darunter steht das laufende Hidschri-Jahr mit allen zwölf Monaten und ihren Anf
 
 > Gerechnet wird nach dem Umm-al-Qura-Kalender, den auch Saudi-Arabien verwendet. Das ist eine Berechnung, keine Mondsichtung — vor Ort kann der Monatsbeginn ein bis zwei Tage abweichen.
 
-### Schon bezahlte Zakat
+### Schon entrichtete Zakat
 
-Unter *Einstellungen → Schon bezahlte Zakat* trägst du ein, was du im laufenden Zakat-Jahr bereits überwiesen hast. Die App stellt gegenüber:
+Unter *Zakat → Einstellen → Schon entrichtet* trägst du **jede Zahlung einzeln** ein — wohin sie ging, wie viel, wann:
 
 ```
-Zakat gesamt          600,00 €
-Davon schon gezahlt  − 250,00 €
-Bleibt offen          350,00 €
+Waisenhaus      14. März 2026     180,00 €
+Hungerhilfe      2. Juni 2026      90,00 €
+Moschee         ohne Datum         50,00 €
+3 Zahlungen                       320,00 €
+
+Zakat gesamt                    1.121,41 €
+Davon schon entrichtet          − 320,00 €
+Bleibt offen                      801,41 €
 ```
 
-Das ist reine Buchführung — **an deinem Monatsbetrag ändert sich dadurch nichts.** Nach dem Stichtag setzt du den Wert mit einem Knopf wieder auf null.
+Das ist reine Buchführung — **an deinem Monatsbetrag ändert sich dadurch nichts.** Nach dem Stichtag löscht der Knopf **Auf null setzen** die ganze Liste; er fragt vorher nach, und der Hinweis danach bietet **Rückgängig** an.
 
 ### Stichtag und monatliche Zahlweise
 

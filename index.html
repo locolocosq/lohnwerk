@@ -1152,6 +1152,11 @@ details.klapp .klapp-inhalt{padding-bottom:var(--s4);}
   <symbol id="ic-mond" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
     <path d="M20 14.2A8.4 8.4 0 0 1 9.8 4a8.4 8.4 0 1 0 10.2 10.2Z"/>
   </symbol>
+  <!-- Islamischer Kalender: Kalenderblatt mit Mondsichel darin. -->
+  <symbol id="ic-umalqura" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="3.5" y="5" width="17" height="15.5" rx="2.4"/><path d="M3.5 9.6h17"/><path d="M8 3.2v3.4M16 3.2v3.4"/>
+    <path d="M15.1 17.2a3.6 3.6 0 0 1-4.2-4.8 3.6 3.6 0 1 0 4.2 4.8Z"/>
+  </symbol>
   <symbol id="ic-auto" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
     <rect x="3.5" y="4.5" width="17" height="13" rx="2.2"/><path d="M8 20.5h8"/><path d="M12 17.5v3"/>
   </symbol>
@@ -1329,7 +1334,7 @@ details.klapp .klapp-inhalt{padding-bottom:var(--s4);}
 /* Die Fassung der App. Sie steht in den Einstellungen, damit du prüfen
    kannst, ob dein Gerät die neueste Version hat. Bei jeder Änderung
    zusammen mit CACHE_NAME in sw.js hochzählen. */
-const APP_VERSION = "19";
+const APP_VERSION = "20";
 
 const SPEICHER_SCHLUESSEL = "lohnwerk.v1";
 const SPEICHER_DEFEKT = "lohnwerk.backup.defekt";
@@ -1659,6 +1664,13 @@ function datumLesbar(iso){
   if(isNaN(d.getTime())) return "nie";
   return `${d.getDate()}. ${MONATE_LANG[d.getMonth()]} ${d.getFullYear()}`;
 }
+/** Kurzform fürs Gedränge: „14. Mär. 2026“. */
+function datumKurz(iso){
+  if(!iso) return "";
+  const d = new Date(iso);
+  if(isNaN(d.getTime())) return "";
+  return d.toLocaleDateString("de-DE",{ day:"numeric", month:"short", year:"numeric" });
+}
 function tageSeit(iso){
   if(!iso) return null;
   const d = new Date(iso);
@@ -1747,9 +1759,15 @@ function zustandNeu(){
            art "silber" → wert ist Gramm
            art "btc"    → wert ist die Menge Bitcoin */
         posten: [],
-        /* Was du in diesem Zakat-Jahr schon gezahlt hast. Rein zur
-           Übersicht — der Monatsbetrag bleibt davon unberührt. */
-        bezahltCent: 0,
+        /* Was du in diesem Zakat-Jahr schon entrichtet hast, als Liste
+           einzelner Zahlungen: { id, name, betragCent, datum }
+           Rein zur Übersicht — der Monatsbetrag bleibt davon unberührt. */
+        zahlungen: [],
+        /* Für die Kalender-Termine: eine feste Kennung der Reihe und
+           die Fassungsnummer, die bei jeder Ausgabe hochzählt. */
+        kalenderFolge: null,
+        kalenderStand: 0,
+        kalenderStandGesetzt: null,
         stand: null,
         /* Dein persönlicher Zakat-Stichtag (ISO-Datum). Das islamische Jahr
            ist rund elf Tage kürzer als das Sonnenjahr — der Stichtag wandert
@@ -1875,9 +1893,35 @@ function zustandSaeubern(roh){
     grundlage: ["silber","gold"].includes(zk.grundlage) ? zk.grundlage : "silber",
     stand: typeof zk.stand === "string" ? zk.stand : null,
     stichtag: typeof zk.stichtag === "string" ? zk.stichtag : null,
-    bezahltCent: Number.isFinite(+zk.bezahltCent) ? Math.max(0, Math.round(+zk.bezahltCent)) : 0,
+    kalenderFolge: typeof zk.kalenderFolge === "string" && zk.kalenderFolge ? zk.kalenderFolge : null,
+    kalenderStand: Number.isFinite(+zk.kalenderStand) ? Math.max(0, Math.round(+zk.kalenderStand)) : 0,
+    kalenderStandGesetzt: typeof zk.kalenderStandGesetzt === "string" ? zk.kalenderStandGesetzt : null,
+    zahlungen: [],
     posten: []
   };
+
+  /* Die entrichteten Zahlungen. Frühere Fassungen kannten nur eine
+     einzige Zahl — daraus wird ein einzelner Eintrag. */
+  if(Array.isArray(zk.zahlungen)){
+    z.einstellungen.zakat.zahlungen = zk.zahlungen.map(t => {
+      if(!t || typeof t !== "object") return null;
+      const betrag = Number(t.betragCent);
+      if(!Number.isFinite(betrag) || betrag <= 0) return null;
+      return {
+        id: typeof t.id === "string" && t.id ? t.id : idNeu("zz"),
+        name: (typeof t.name === "string" ? t.name.trim() : "").slice(0,50) || "Zahlung",
+        betragCent: Math.round(betrag),
+        datum: typeof t.datum === "string" && /^\d{4}-\d{2}-\d{2}$/.test(t.datum) ? t.datum : null
+      };
+    }).filter(Boolean);
+  } else {
+    const altBetrag = Number(zk.bezahltCent);
+    if(Number.isFinite(altBetrag) && altBetrag > 0){
+      z.einstellungen.zakat.zahlungen = [
+        { id: idNeu("zz"), name: "Bisher entrichtet", betragCent: Math.round(altBetrag), datum: null }
+      ];
+    }
+  }
 
   if(Array.isArray(zk.posten)){
     z.einstellungen.zakat.posten = zk.posten.map(p => {
@@ -5575,6 +5619,7 @@ function zakatReiterKalender(wurzel){
   karte.appendChild(el("div",{ class:"karte-kopf" }, el("h2",{ text:"Stichtag" })));
   karte.appendChild(stichtagBereich());
   wurzel.appendChild(karte);
+  wurzel.appendChild(zakatKalenderKarte());
 }
 
 /** Die Karte mit den Tagespreisen und dem Abruf-Knopf. */
@@ -5660,40 +5705,466 @@ async function preiseAbrufen(knopf, danach){
   knopf.replaceChildren(...alt);
 }
 
-/** Die Karte für schon gezahlte Zakat. */
-function zakatBezahltKarte(){
-  const e = S.einstellungen;
-  const feld = betragsFeld(e.zakat.bezahltCent || 0, "In diesem Jahr überwiesen");
-  feld.feld.removeAttribute("data-autofokus");
-  const hinweis = feld.box.querySelector(".feld-hinweis");
-  if(hinweis) hinweis.remove();
-  feld.feld.addEventListener("change", () => {
-    e.zakat.bezahltCent = Math.max(0, feld.wert() ?? 0);
-    aendern();
+/* ----------------------------------------------------------------
+   TERMINE FÜR DEN HANDY-KALENDER
+
+   Lohnwerk schreibt eine .ics-Datei — das Format, das iPhone und
+   Android verstehen. Die Datei entsteht auf deinem Gerät; es geht
+   dabei nichts ins Netz.
+
+   Jeder Termin behält seine Kennung (UID) über alle Änderungen
+   hinweg. Verschiebst du den Stichtag, bekommen dieselben Kennungen
+   ein neues Datum und eine höhere Fassungsnummer (SEQUENCE) — ein
+   Kalender verschiebt die vorhandenen Termine dann, statt neue
+   danebenzulegen. Genau dafür ist SEQUENCE im Standard gedacht.
+   ---------------------------------------------------------------- */
+
+const ICS_JAHRE = 20;
+
+/** Die Kennung der Terminreihe. Einmal vergeben, bleibt sie — nur so
+    treffen spätere Ausgaben dieselben Termine. */
+function zakatKalenderFolge(){
+  const z = S.einstellungen.zakat;
+  if(typeof z.kalenderFolge !== "string" || !z.kalenderFolge) z.kalenderFolge = idNeu("zk");
+  return z.kalenderFolge;
+}
+
+/** Die Stichtage der nächsten Jahre, im Mondjahr-Takt. */
+function zakatStichtage(anzahl = ICS_JAHRE){
+  const iso = S.einstellungen.zakat?.stichtag;
+  if(!iso) return [];
+  const start = new Date(iso + "T12:00:00");
+  if(isNaN(start.getTime())) return [];
+
+  const jetzt = heute();
+  const heuteMittag = new Date(jetzt.getFullYear(), jetzt.getMonth(), jetzt.getDate(), 12, 0, 0);
+  const h = hijriVonDatum(start);
+  const liste = [];
+
+  if(h){
+    /* Sauber gerechnet: dasselbe islamische Datum, Jahr für Jahr. */
+    let jahr = h.jahr;
+    let sicherung = 0;
+    while(sicherung++ < 60){
+      const d = datumVonHijri(jahr, h.monat, h.tag);
+      if(d && d >= heuteMittag) break;
+      jahr++;
+    }
+    for(let i = 0; i < anzahl; i++){
+      const d = datumVonHijri(jahr + i, h.monat, h.tag);
+      if(!d) continue;
+      liste.push({ datum: d, hijriJahr: jahr + i, hijriMonat: h.monat, hijriTag: h.tag });
+    }
+  } else {
+    /* Kennt der Browser den islamischen Kalender nicht: 354-Tage-Schritte. */
+    let d = new Date(start.getTime());
+    let sicherung = 0;
+    while(d < heuteMittag && sicherung++ < 60) d = new Date(d.getTime() + MONDJAHR_TAGE * 86400000);
+    for(let i = 0; i < anzahl; i++){
+      liste.push({ datum: new Date(d.getTime() + i * MONDJAHR_TAGE * 86400000),
+                   hijriJahr: null, hijriMonat: null, hijriTag: null });
+    }
+  }
+  return liste;
+}
+
+/* --- Die Bausteine einer .ics-Datei --- */
+
+/** Sonderzeichen im Textwert entschärfen (RFC 5545, Abschnitt 3.3.11). */
+function icsText(s){
+  return String(s ?? "")
+    .replace(/\\/g, "\\\\")
+    .replace(/;/g, "\\;")
+    .replace(/,/g, "\\,")
+    .replace(/\r?\n/g, "\\n");
+}
+
+/**
+ * Zeilen umbrechen, Fortsetzung mit führendem Leerzeichen.
+ * Der Standard zählt Oktette, nicht Zeichen — ein „ü“ belegt zwei,
+ * ein Gedankenstrich drei. Deshalb wird nach Bytes gemessen und nie
+ * mitten in einem Zeichen oder hinter einem Gegenschrägstrich
+ * getrennt, sonst zerfällt eine Escape-Folge.
+ */
+function icsFalten(zeile){
+  const oktette = (zeichen) => {
+    const c = zeichen.codePointAt(0);
+    return c < 0x80 ? 1 : c < 0x800 ? 2 : c < 0x10000 ? 3 : 4;
+  };
+  const zeichen = Array.from(zeile);   // Ersatzzeichenpaare bleiben zusammen
+  const teile = [];
+  let puffer = "";
+  let breite = 0;
+  let grenze = 75;                     // Fortsetzungen tragen ein Leerzeichen
+
+  for(const z of zeichen){
+    const b = oktette(z);
+    /* Passt es nicht mehr und stünde die Trennung nicht direkt hinter
+       einem Gegenschrägstrich, dann hier umbrechen. */
+    if(breite + b > grenze && puffer && !puffer.endsWith("\\")){
+      teile.push(puffer);
+      puffer = "";
+      breite = 0;
+      grenze = 74;
+    }
+    puffer += z;
+    breite += b;
+  }
+  if(puffer) teile.push(puffer);
+  return teile.map((t, k) => k === 0 ? t : " " + t).join("\r\n");
+}
+
+function icsDatum(d){
+  const p = n => String(n).padStart(2,"0");
+  return d.getFullYear() + p(d.getMonth()+1) + p(d.getDate());
+}
+function icsZeitstempel(d = new Date()){
+  const p = n => String(n).padStart(2,"0");
+  return d.getUTCFullYear() + p(d.getUTCMonth()+1) + p(d.getUTCDate()) + "T"
+       + p(d.getUTCHours()) + p(d.getUTCMinutes()) + p(d.getUTCSeconds()) + "Z";
+}
+
+/**
+ * Baut die Kalenderdatei.
+ * @param {boolean} absagen  true = die Termine wieder herausnehmen
+ */
+function zakatIcsBauen(absagen = false){
+  const termine = zakatStichtage();
+  if(termine.length === 0) return null;
+
+  const z = S.einstellungen.zakat;
+  const folge = zakatKalenderFolge();
+  const stand = Math.max(0, Math.round(Number(z.kalenderStand) || 0));
+  const stempel = icsZeitstempel();
+
+  const zeilen = [
+    "BEGIN:VCALENDAR",
+    "VERSION:2.0",
+    "PRODID:-//Lohnwerk//Zakat-Stichtag//DE",
+    "CALSCALE:GREGORIAN",
+    "METHOD:" + (absagen ? "CANCEL" : "PUBLISH"),
+    "X-WR-CALNAME:" + icsText("Zakat-Stichtag")
+  ];
+
+  termine.forEach((t, i) => {
+    const tagDanach = new Date(t.datum.getTime() + 86400000);
+    const hijri = t.hijriJahr
+      ? `${t.hijriTag}. ${HIJRI_MONATE[t.hijriMonat-1]} ${t.hijriJahr} AH`
+      : null;
+
+    const beschreibung = absagen
+      ? "Dieser Termin wurde von Lohnwerk zurückgezogen."
+      : [
+          "Heute rechnest du deine Zakat ab.",
+          hijri ? "Nach islamischem Kalender: " + hijri : null,
+          "",
+          "Prüfe: Liegt dein Vermögen über der Schwelle (Nisab)? Was hast du im vergangenen "
+          + "Mondjahr schon entrichtet? Was bleibt offen?",
+          "",
+          "Ein Mondjahr hat rund 354 Tage — elf weniger als ein Sonnenjahr. Der Termin wandert "
+          + "deshalb jedes Jahr nach vorn.",
+          "",
+          "Berechnet nach dem Umm-al-Qura-Kalender. Das ist eine Rechnung, keine Mondsichtung — "
+          + "vor Ort kann der Tag um ein bis zwei Tage abweichen."
+        ].filter(x => x !== null).join("\n");
+
+    zeilen.push("BEGIN:VEVENT");
+    /* Die Kennung hängt an Folge und Nummer, nicht am Datum — nur so
+       findet der Kalender den Termin beim Verschieben wieder. */
+    zeilen.push(`UID:zakat-${i+1}-${folge}@lohnwerk`);
+    zeilen.push("SEQUENCE:" + stand);
+    zeilen.push("DTSTAMP:" + stempel);
+    if(absagen) zeilen.push("STATUS:CANCELLED");
+    zeilen.push("DTSTART;VALUE=DATE:" + icsDatum(t.datum));
+    zeilen.push("DTEND;VALUE=DATE:" + icsDatum(tagDanach));
+    zeilen.push("TRANSP:TRANSPARENT");
+    zeilen.push(icsFalten("SUMMARY:" + icsText(
+      "Zakat-Stichtag" + (hijri ? " · " + t.hijriTag + ". " + HIJRI_MONATE[t.hijriMonat-1] : ""))));
+    zeilen.push(icsFalten("DESCRIPTION:" + icsText(beschreibung)));
+
+    if(!absagen){
+      /* Erinnerung am Vortag um zwölf Uhr: zwölf Stunden vor dem
+         Tagesbeginn des Termins. Mitternacht wäre keine gute Zeit. */
+      zeilen.push("BEGIN:VALARM");
+      zeilen.push("ACTION:DISPLAY");
+      zeilen.push("TRIGGER:-PT12H");
+      zeilen.push(icsFalten("DESCRIPTION:" + icsText("Morgen ist dein Zakat-Stichtag.")));
+      zeilen.push("END:VALARM");
+    }
+    zeilen.push("END:VEVENT");
   });
 
+  zeilen.push("END:VCALENDAR");
+  return zeilen.join("\r\n") + "\r\n";
+}
+
+/** Die Termine ausgeben — jede Ausgabe zählt die Fassungsnummer hoch. */
+function zakatKalenderExport(absagen = false){
+  const z = S.einstellungen.zakat;
+  if(!z.stichtag){
+    toast("Wähle zuerst einen Stichtag.");
+    return;
+  }
+  z.kalenderStand = Math.max(0, Math.round(Number(z.kalenderStand) || 0)) + 1;
+  zakatKalenderFolge();
+  const inhalt = zakatIcsBauen(absagen);
+  if(!inhalt){
+    toast("Die Termine lassen sich gerade nicht berechnen.");
+    return;
+  }
+  z.kalenderStandGesetzt = absagen ? null : z.stichtag;
+  speichern();
+
+  const name = absagen ? "zakat-termine-entfernen.ics" : `zakat-stichtag-${datumIso()}.ics`;
+  dateiHerunterladen(name, inhalt, "text/calendar;charset=utf-8");
+  toast(absagen
+    ? "Absage-Datei gespeichert. Öffne sie, um die Termine zu entfernen."
+    : `${ICS_JAHRE} Termine gespeichert. Öffne die Datei, um sie in den Kalender zu legen.`);
+  zeichnen();
+}
+
+/** Die Karte im Reiter Kalender. */
+function zakatKalenderKarte(){
+  const z = S.einstellungen.zakat;
+  const karte = el("div",{ class:"karte" });
+  karte.appendChild(el("div",{ class:"karte-kopf" }, el("h2",{ text:"In den Handy-Kalender" })));
+
+  if(!z.stichtag){
+    karte.appendChild(el("p",{ class:"t-klein", style:"margin-top:-8px;line-height:1.55",
+      text:`Sobald du oben einen Stichtag gewählt hast, kannst du ihn hier als Termine für die `
+         + `nächsten ${ICS_JAHRE} Jahre in den Kalender deines Handys legen — mit Erinnerung am Vortag.` }));
+    return karte;
+  }
+
+  const termine = zakatStichtage();
+  const schonAusgegeben = z.kalenderStandGesetzt || null;
+  const veraltet = schonAusgegeben && schonAusgegeben !== z.stichtag;
+
+  karte.appendChild(el("p",{ class:"t-klein", style:"margin-top:-8px;margin-bottom:14px;line-height:1.55",
+    text:`Lohnwerk legt dir die nächsten ${ICS_JAHRE} Stichtage als Kalenderdatei an — jeder als `
+       + "ganztägiger Termin mit einer Erinnerung am Vortag um zwölf Uhr. Die Datei entsteht auf "
+       + "deinem Gerät, es geht nichts ins Netz." }));
+
+  if(termine.length > 0){
+    const vorschau = el("div",{ style:"margin-bottom:14px" });
+    termine.slice(0,3).forEach(t => {
+      vorschau.appendChild(el("div",{ class:"datenzeile" },
+        el("span",{ class:"dz-name" },
+          el("span",{ text: datumLesbar(t.datum.toISOString()) }),
+          t.hijriJahr ? el("span",{ class:"neben",
+            text:`${t.hijriTag}. ${HIJRI_MONATE[t.hijriMonat-1]} ${t.hijriJahr}` }) : null),
+        el("span",{ class:"dz-wert", style:"font-weight:500",
+          text: t.datum.toLocaleDateString("de-DE",{ weekday:"long" }) })
+      ));
+    });
+    if(termine.length > 3){
+      vorschau.appendChild(el("p",{ class:"t-klein", style:"margin-top:8px",
+        text:`… und ${termine.length - 3} weitere bis ${termine[termine.length-1].datum.getFullYear()}.` }));
+    }
+    karte.appendChild(vorschau);
+  }
+
+  if(veraltet){
+    karte.appendChild(el("div",{ class:"banner warn", style:"margin-bottom:14px" },
+      icon("ic-warn"),
+      el("div",{ class:"inhalt-b", style:"line-height:1.55",
+        text:"Du hast den Stichtag geändert, seit du die Termine zuletzt ausgegeben hast. Gib sie "
+           + "neu aus — dein Kalender verschiebt die vorhandenen Termine dann auf das neue Datum." })
+    ));
+  }
+
+  karte.appendChild(el("button",{ class:"knopf primaer breit", type:"button",
+    onclick:() => zakatKalenderExport(false) },
+    icon("ic-kalender"), schonAusgegeben ? "Termine neu ausgeben" : `${ICS_JAHRE} Termine in den Kalender`));
+
+  if(schonAusgegeben){
+    karte.appendChild(el("button",{ class:"knopf rahmen breit", type:"button", style:"margin-top:8px",
+      onclick:() => bestaetigen({
+        titel:"Termine wieder entfernen?",
+        text:"Lohnwerk legt dir eine Absage-Datei an. Öffnest du sie, nimmt dein Kalender die "
+           + "Zakat-Termine wieder heraus. Manche Kalender-Apps können das nicht — dort löschst "
+           + "du die Termine von Hand.",
+        knopfText:"Absage-Datei anlegen",
+        dann:() => zakatKalenderExport(true)
+      }) },
+      icon("ic-muell"), "Termine wieder entfernen"));
+  }
+
+  karte.appendChild(el("p",{ class:"t-klein", style:"margin-top:14px;line-height:1.55",
+    text:"So kommt die Datei in den Kalender: Auf dem iPhone tippst du sie nach dem Speichern in "
+       + "„Downloads“ an, dann auf „Alle hinzufügen“. Auf Android öffnest du sie aus der "
+       + "Benachrichtigung oder aus „Dateien“ und wählst deinen Kalender." }));
+
+  karte.appendChild(el("p",{ class:"t-klein", style:"margin-top:10px;line-height:1.55",
+    text:"Änderst du den Stichtag später, gib die Termine einfach neu aus. Sie behalten ihre "
+       + "Kennung, deshalb verschiebt ein Kalender die vorhandenen Einträge, statt neue "
+       + "danebenzulegen. Beherrscht deine App das nicht, nimmst du die alten mit dem Knopf "
+       + "darüber heraus." }));
+
+  return karte;
+}
+
+/* ----------------------------------------------------------------
+   SCHON ENTRICHTETE ZAKAT
+   Als Liste einzelner Zahlungen statt einer einzigen Zahl: So siehst
+   du, wohin was ging, statt nur die Summe.
+   ---------------------------------------------------------------- */
+
+/** Die Liste der Zahlungen; sorgt dafür, dass es immer eine gibt. */
+function zakatZahlungen(){
+  const z = S.einstellungen.zakat;
+  if(!Array.isArray(z.zahlungen)) z.zahlungen = [];
+  return z.zahlungen;
+}
+
+/** Die Summe aller eingetragenen Zahlungen in Cent. */
+function zakatBezahlt(){
+  return zakatZahlungen().reduce(
+    (summe, z) => summe + (Number.isFinite(z.betragCent) ? z.betragCent : 0), 0);
+}
+
+/** Neueste zuerst; Zahlungen ohne Datum ans Ende. */
+function zakatZahlungenSortiert(){
+  return zakatZahlungen().slice().sort((a,b) => {
+    if(a.datum && b.datum) return b.datum.localeCompare(a.datum);
+    if(a.datum) return -1;
+    if(b.datum) return 1;
+    return 0;
+  });
+}
+
+/** Anlegen oder Ändern einer einzelnen Zahlung. */
+function zakatZahlungDialog(vorhanden, dann){
+  const neu = !vorhanden;
+  const daten = vorhanden
+    ? { ...vorhanden }
+    : { id:idNeu("zz"), name:"", betragCent:0, datum:datumIso() };
+
+  const koerper = el("div",{});
+
+  const nameFeld = el("input",{ class:"eingabe", type:"text", maxlength:"50",
+    placeholder:"z. B. Waisenhaus, Moschee, Hungerhilfe",
+    value:daten.name, "data-autofokus":"" });
+  koerper.appendChild(el("div",{ class:"feld" },
+    el("div",{ class:"feld-label", text:"Wohin ging die Zahlung?" }), nameFeld,
+    el("div",{ class:"feld-hinweis", text:"Ein Name, an dem du sie wiedererkennst." })));
+
+  const betrag = betragsFeld(daten.betragCent || 0, "Betrag");
+  betrag.feld.removeAttribute("data-autofokus");
+  koerper.appendChild(betrag.box);
+
+  const datumFeld = el("input",{ class:"eingabe", type:"date", value: daten.datum || "",
+    "aria-label":"Datum der Zahlung" });
+  koerper.appendChild(el("div",{ class:"feld", style:"margin-bottom:0" },
+    el("div",{ class:"feld-label", text:"Wann" }), datumFeld,
+    el("div",{ class:"feld-hinweis", text:"Darf auch leer bleiben." })));
+
+  const speichernFn = () => {
+    const wert = Math.max(0, betrag.wert() ?? 0);
+    if(wert <= 0){
+      toast("Trag einen Betrag über null ein.");
+      betrag.feld.focus();
+      return;
+    }
+    daten.name = nameFeld.value.trim().slice(0,50) || "Zahlung";
+    daten.betragCent = wert;
+    daten.datum = datumFeld.value || null;
+    const liste = zakatZahlungen();
+    const i = liste.findIndex(z => z.id === daten.id);
+    if(i >= 0) liste[i] = daten; else liste.push(daten);
+    speichern();
+    dialogSchliessen(2);
+    if(dann) dann(); else zeichnen();
+  };
+  koerper.addEventListener("keydown", (e) => { if(e.key === "Enter"){ e.preventDefault(); speichernFn(); } });
+
+  const fuss = el("div",{ style:"display:flex;gap:8px;width:100%" },
+    vorhanden ? el("button",{ class:"knopf gefahr", type:"button", "aria-label":"Zahlung löschen",
+      onclick:() => {
+        const liste = zakatZahlungen();
+        const i = liste.findIndex(z => z.id === daten.id);
+        const weg = i >= 0 ? liste.splice(i,1)[0] : null;
+        speichern();
+        dialogSchliessen(2);
+        if(dann) dann(); else zeichnen();
+        if(weg) toast(`„${weg.name}“ entfernt.`, () => {
+          zakatZahlungen().push(weg); speichern(); zeichnen();
+        });
+      }}, icon("ic-muell")) : null,
+    el("button",{ class:"knopf primaer", type:"button", style:"flex:1",
+      text: neu ? "Eintragen" : "Speichern", onclick:speichernFn })
+  );
+  dialogOeffnen({ titel: neu ? "Zahlung eintragen" : "Zahlung bearbeiten", koerper, fuss, ebene:2 });
+}
+
+/** Die Karte mit den schon entrichteten Zahlungen. */
+function zakatBezahltKarte(){
+  const zahlungen = zakatZahlungenSortiert();
+  const bezahlt = zakatBezahlt();
+
   const karte = el("div",{ class:"karte" },
-    el("div",{ class:"karte-kopf" }, el("h2",{ text:"Schon bezahlte Zakat" })),
+    el("div",{ class:"karte-kopf" },
+      el("h2",{ text:"Schon entrichtet" }),
+      el("button",{ class:"knopf leise klein", type:"button",
+        onclick:() => zakatZahlungDialog(null, () => zeichnen()) },
+        icon("ic-plus"), "Neu")
+    ),
     el("p",{ class:"t-klein", style:"margin-top:-8px;margin-bottom:16px;line-height:1.55",
-      text:"Was du in diesem Zakat-Jahr bereits überwiesen hast. Die Zahl dient nur der Übersicht — "
-         + "an deinem Monatsbetrag und an den Positionen ändert sie nichts." }),
-    feld.box
+      text:"Trag jede Zahlung einzeln ein, die du in diesem Zakat-Jahr schon geleistet hast. "
+         + "Das dient nur der Übersicht — an deinem Monatsbetrag und an den Positionen ändert es nichts." })
   );
 
+  /* --- Die einzelnen Zahlungen --- */
+  if(zahlungen.length === 0){
+    karte.appendChild(el("button",{ class:"knopf rahmen breit", type:"button",
+      onclick:() => zakatZahlungDialog(null, () => zeichnen()) },
+      icon("ic-plus"), "Erste Zahlung eintragen"));
+  } else {
+    zahlungen.forEach(z => {
+      karte.appendChild(el("div",{ class:"datenzeile", style:"align-items:center" },
+        el("button",{ type:"button",
+          style:"flex:1;text-align:left;min-width:0;display:flex;align-items:center;gap:11px;min-height:44px",
+          onclick:() => zakatZahlungDialog(z, () => zeichnen()) },
+          (() => { const s = icon("ic-check"); s.style.width="18px"; s.style.height="18px";
+                   s.style.flex="none"; s.style.color="var(--gruen)"; return s; })(),
+          el("span",{ style:"min-width:0" },
+            el("span",{ style:"display:block;font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap",
+              text:z.name }),
+            el("span",{ style:"display:block;font-size:12.5px;color:var(--text-2)",
+              text: z.datum ? datumLesbar(z.datum) : "ohne Datum" })
+          )
+        ),
+        el("span",{ style:"font-variant-numeric:tabular-nums;font-weight:600;white-space:nowrap;color:var(--gruen)",
+          text:euro(z.betragCent) })
+      ));
+    });
+
+    karte.appendChild(el("div",{ style:"display:flex;justify-content:space-between;gap:12px;align-items:baseline;margin-top:14px;padding-top:12px;border-top:1.5px solid var(--linie-stark)" },
+      el("span",{ class:"t-label", style:"font-weight:650",
+        text:`${zahlungen.length} ${plural(zahlungen.length,"Zahlung","Zahlungen")}` }),
+      el("span",{ style:"font-size:18px;font-weight:650;font-variant-numeric:tabular-nums;color:var(--gruen)",
+        text:euro(bezahlt) })
+    ));
+
+    karte.appendChild(el("button",{ class:"knopf rahmen breit", type:"button", style:"margin-top:12px",
+      onclick:() => zakatZahlungDialog(null, () => zeichnen()) },
+      icon("ic-plus"), "Weitere Zahlung eintragen"));
+  }
+
+  /* --- Die Gegenüberstellung, sobald Zakat fällig ist --- */
   const soll = zakatFaellig();
   if(soll > 0){
-    const bezahlt = e.zakat.bezahltCent || 0;
     const rest = soll - bezahlt;
     const zeile = (name, wert, farbe) => el("div",{ class:"datenzeile" },
       el("span",{ class:"dz-name", text:name }),
       el("span",{ class:"dz-wert", style: farbe ? `color:${farbe}` : null, text:wert })
     );
-    karte.appendChild(el("div",{ style:"margin-top:4px" },
+    karte.appendChild(el("div",{ style:"margin-top:18px;padding-top:14px;border-top:1px solid var(--linie)" },
       zeile("Zakat gesamt", euro(soll)),
-      zeile("Davon schon gezahlt", "− "+euro(bezahlt), bezahlt > 0 ? "var(--gruen)" : null),
+      zeile("Davon schon entrichtet", "− "+euro(bezahlt), bezahlt > 0 ? "var(--gruen)" : null),
       el("div",{ class:"datenzeile", style:"border-top:1.5px solid var(--linie-stark)" },
         el("span",{ class:"dz-name", style:"font-weight:650",
-          text: rest <= 0 ? "Vollständig gezahlt" : "Bleibt offen" }),
+          text: rest <= 0 ? "Vollständig entrichtet" : "Bleibt offen" }),
         el("span",{ class:"dz-wert", style:`font-size:17px;color:${rest <= 0 ? "var(--gruen)" : "var(--text)"}`,
           text: rest <= 0 ? euro(0) : euro(rest) })
       )
@@ -5702,24 +6173,38 @@ function zakatBezahltKarte(){
       karte.appendChild(el("p",{ class:"t-klein", style:"margin-top:10px;line-height:1.5",
         text:`Du hast ${euro(-rest)} mehr gezahlt, als die Rechnung ergibt. Das Zuviel gilt als freiwillige Gabe.` }));
     }
-    karte.appendChild(el("div",{ class:"knopf-reihe", style:"margin-top:14px" },
+  } else if(zahlungen.length > 0){
+    karte.appendChild(el("p",{ class:"t-klein", style:"margin-top:16px;line-height:1.55",
+      text:"Sobald dein Vermögen über der Schwelle liegt und die Tagespreise eingetragen sind, "
+         + "steht hier die Gegenüberstellung: Zakat gesamt, davon entrichtet, was offen bleibt." }));
+  }
+
+  /* --- Das neue Zakat-Jahr --- */
+  if(zahlungen.length > 0){
+    karte.appendChild(el("div",{ class:"knopf-reihe", style:"margin-top:16px" },
       el("button",{ class:"knopf klein rahmen", type:"button",
         onclick:() => {
-          const alt = e.zakat.bezahltCent || 0;
-          e.zakat.bezahltCent = 0;
-          aendern();
-          toast("Zurückgesetzt — für ein neues Zakat-Jahr.", () => {
-            S.einstellungen.zakat.bezahltCent = alt; aendern();
+          bestaetigen({
+            titel:"Neues Zakat-Jahr beginnen?",
+            text:`Das löscht alle ${zahlungen.length} eingetragenen ${plural(zahlungen.length,"Zahlung","Zahlungen")} `
+               + `über zusammen ${euro(bezahlt)}. Dein Vermögen, die Preise und der Stichtag bleiben, wie sie sind.`,
+            knopfText:"Zahlungen löschen",
+            gefahr:true,
+            dann:() => {
+              const alt = zakatZahlungen().slice();
+              S.einstellungen.zakat.zahlungen = [];
+              aendern();
+              toast("Zurückgesetzt — für ein neues Zakat-Jahr.", () => {
+                S.einstellungen.zakat.zahlungen = alt; aendern();
+              });
+            }
           });
-        }}, "Auf null setzen")
+        }}, icon("ic-wiederkehr"), "Auf null setzen")
     ));
     karte.appendChild(el("p",{ class:"t-klein", style:"margin-top:10px;line-height:1.5",
-      text:"Nach deinem Stichtag beginnt ein neues Zakat-Jahr — dann setzt du den Wert wieder auf null." }));
-  } else {
-    karte.appendChild(el("p",{ class:"t-klein", style:"margin-top:12px;line-height:1.5",
-      text:"Sobald dein Vermögen über der Schwelle liegt und die Tagespreise eingetragen sind, "
-         + "steht hier die Gegenüberstellung: Zakat gesamt, davon gezahlt, was offen bleibt." }));
+      text:"Nach deinem Stichtag beginnt ein neues Zakat-Jahr — dann setzt du die Liste zurück." }));
   }
+
   return karte;
 }
 
@@ -5776,7 +6261,7 @@ function zakatRechner(){
 
       /* Was davon bereits überwiesen ist und was noch aussteht. */
       pflichtig ? (() => {
-        const bezahlt = e.zakat.bezahltCent || 0;
+        const bezahlt = zakatBezahlt();
         const rest = betrag - bezahlt;
         const block = el("div",{ style:"margin-top:16px;padding-top:14px;border-top:1px solid var(--linie)" });
 
@@ -5785,6 +6270,16 @@ function zakatRechner(){
           el("span",{ style:`font-size:16px;font-weight:600;font-variant-numeric:tabular-nums;color:${bezahlt > 0 ? "var(--gruen)" : "var(--text-2)"}`,
             text: bezahlt > 0 ? "− "+euro(bezahlt) : euro(0) })
         ));
+
+        /* Die einzelnen Zahlungen, damit sichtbar bleibt, wohin was ging. */
+        zakatZahlungenSortiert().forEach(z => {
+          block.appendChild(el("div",{ style:"display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-top:6px;padding-left:14px" },
+            el("span",{ style:"font-size:13.5px;color:var(--text-2);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap",
+              text: z.name + (z.datum ? " · " + datumKurz(z.datum) : "") }),
+            el("span",{ style:"font-size:13.5px;color:var(--text-2);font-variant-numeric:tabular-nums;white-space:nowrap",
+              text:euro(z.betragCent) })
+          ));
+        });
 
         block.appendChild(el("div",{ style:"display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-top:10px;padding-top:10px;border-top:1.5px solid var(--linie-stark)" },
           el("span",{ style:"font-size:15px;font-weight:650",
@@ -5803,7 +6298,7 @@ function zakatRechner(){
 
         block.appendChild(el("button",{ class:"knopf klein rahmen", type:"button", style:"margin-top:12px",
           onclick:() => { UI.zakatTab = "einstellen"; zeichneZakat(); } },
-          icon("ic-stift"), bezahlt > 0 ? "Betrag ändern" : "Entrichtetes eintragen"));
+          icon("ic-stift"), bezahlt > 0 ? "Zahlungen ändern" : "Entrichtetes eintragen"));
         return block;
       })() : null
     ));
@@ -8138,6 +8633,25 @@ function csvExportieren(){
       zeilen.push(["Zakat","noch offen","","", zahl(ab.offen/12), zahl(ab.offen)].map(feld).join(trenn));
     }
     if(e.zakat.stichtag) zeilen.push(["Zakat","Stichtag", datumLesbar(e.zakat.stichtag),"","",""].map(feld).join(trenn));
+  }
+
+  /* --- Schon entrichtete Zakat, jede Zahlung einzeln --- */
+  const zkZahlungen = zakatZahlungenSortiert();
+  if(zkZahlungen.length > 0){
+    const bezahlt = zakatBezahlt();
+    zeilen.push("");
+    zeilen.push(["Zakat entrichtet","Bezeichnung","Datum","","","Betrag in Euro"].map(feld).join(trenn));
+    zkZahlungen.forEach(z => {
+      zeilen.push(["Zahlung", z.name, z.datum ? datumLesbar(z.datum) : "","","",
+        zahl(z.betragCent)].map(feld).join(trenn));
+    });
+    zeilen.push(["Zakat entrichtet","Summe","","","", zahl(bezahlt)].map(feld).join(trenn));
+    const sollJahr = zakatFaellig();
+    if(sollJahr > 0){
+      const offen = sollJahr - bezahlt;
+      zeilen.push(["Zakat entrichtet", offen <= 0 ? "Vollständig entrichtet" : "Bleibt offen",
+        "","","", zahl(Math.max(0, offen))].map(feld).join(trenn));
+    }
   }
 
   // BOM (U+FEFF) voranstellen, damit Excel die Umlaute richtig liest.
